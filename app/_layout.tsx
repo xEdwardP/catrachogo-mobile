@@ -34,7 +34,8 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const { session, isLoading } = useAuth();
+  const { session, profile, isLoading } = useAuth();
+  const hasCompleteProfile = Boolean(session) && Boolean(profile?.phone);
 
   useEffect(() => {
     if (!isLoading) {
@@ -55,15 +56,19 @@ function RootLayoutNav() {
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
 
-        <Stack.Protected guard={session?.role === 'passenger'}>
+        <Stack.Protected guard={Boolean(session) && !profile?.phone}>
+          <Stack.Screen name="complete-profile" />
+        </Stack.Protected>
+
+        <Stack.Protected guard={hasCompleteProfile && session?.role === 'passenger'}>
           <Stack.Screen name="(passenger)/(tabs)" />
         </Stack.Protected>
 
-        <Stack.Protected guard={session?.role === 'driver'}>
+        <Stack.Protected guard={hasCompleteProfile && session?.role === 'driver'}>
           <Stack.Screen name="(driver)/(tabs)" />
         </Stack.Protected>
 
-        <Stack.Protected guard={session?.role === 'admin'}>
+        <Stack.Protected guard={hasCompleteProfile && session?.role === 'admin'}>
           <Stack.Screen name="(admin)/(tabs)" />
         </Stack.Protected>
       </Stack>
