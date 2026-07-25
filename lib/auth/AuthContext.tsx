@@ -23,6 +23,16 @@ export type RegisterInput = {
   role: Extract<UserRole, 'passenger' | 'driver'>;
 };
 
+export type Profile = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  profilePhotoUrl: string | null;
+  createdAt: string;
+};
+
 type LoginResponse = {
   token: string;
   user: { id: string; name: string; role: UserRole };
@@ -38,25 +48,48 @@ type RegisterResponse = {
 
 type AuthContextValue = {
   session: StoredSession | null;
+  profile: Profile | null;
   isLoading: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
+  completePhone: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function fetchProfile(): Promise<Profile> {
+  const { data } = await apiClient.get<Profile>('/auth/profile');
+  return data;
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<StoredSession | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    loadSession().then((stored) => {
+    (async () => {
+      const stored = await loadSession();
       if (cancelled) return;
+      if (!stored) {
+        setIsLoading(false);
+        return;
+      }
       setSession(stored);
-      setIsLoading(false);
-    });
+      try {
+        const fetchedProfile = await fetchProfile();
+        if (!cancelled) setProfile(fetchedProfile);
+      } catch {
+        if (!cancelled) {
+          await clearSession();
+          setSession(null);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -72,7 +105,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         role: data.user.role,
       };
       await saveSession(stored);
+      const fetchedProfile = await fetchProfile();
       setSession(stored);
+      setProfile(fetchedProfile);
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
@@ -88,7 +123,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         role: data.role,
       };
       await saveSession(stored);
+      const fetchedProfile = await fetchProfile();
       setSession(stored);
+      setProfile(fetchedProfile);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error));
+    }
+  }
+
+  async function completePhone(phone: string) {
+    try {
+      const { data } = await apiClient.patch<{ phone: string }>('/auth/phone', { phone });
+      setProfile((prev) => (prev ? { ...prev, phone: data.phone } : prev));
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
@@ -97,10 +143,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   async function logout() {
     await clearSession();
     setSession(null);
+    setProfile(null);
   }
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ session, profile, isLoading, login, register, completePhone, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

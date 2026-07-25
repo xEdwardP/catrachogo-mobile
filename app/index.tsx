@@ -3,10 +3,13 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function Index() {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
 
   if (!session) {
     return <Redirect href="/(auth)/login" />;
+  }
+  if (!profile?.phone) {
+    return <Redirect href="/complete-profile" />;
   }
   if (session.role === 'passenger') {
     return <Redirect href="/(passenger)/(tabs)" />;

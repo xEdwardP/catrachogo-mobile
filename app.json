@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "catrachogo-mobile",
-    "slug": "catrachogo-mobile",
+    "slug": "catracho-go",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,6 +11,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.catrachogo.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,6 +39,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e7ce830b-7a19-4195-94a9-54f21c0ee3a5"
+      }
+    },
+    "owner": "xedwardps-team"
   }
 }
