@@ -1,3 +1,4 @@
+// Paleta de marca CatrachoGo (ver CLAUDE.md — "Identidad visual"), misma que catrachogo-web.
 const primary = '#E8532E';
 const success = '#158059';
 
@@ -12,6 +13,8 @@ export default {
     tabIconDefault: '#B8B0A8',
     tabIconSelected: primary,
   },
+  // catrachogo-web es solo modo claro; esta paleta oscura es propia de mobile
+  // (confirmada como requisito — ver CLAUDE.md "Identidad visual").
   dark: {
     text: '#F5F1ED',
     textSecondary: '#A39C95',
