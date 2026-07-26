@@ -57,3 +57,7 @@ export async function confirmTopup(orderId: string): Promise<{ balance: number }
   const { data } = await apiClient.post<{ balance: number }>('/wallet/topup/confirm', { orderId });
   return data;
 }
+
+export async function requestWithdrawal(paypalEmail: string, amount: number): Promise<void> {
+  await apiClient.post('/wallet/withdrawal', { paypalEmail, amount });
+}
