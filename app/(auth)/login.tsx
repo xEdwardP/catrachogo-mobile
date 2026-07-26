@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -42,7 +43,11 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>CatrachoGo</Text>
+        <Image
+          source={require('@/assets/logo/logo_with_text.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           Inicia sesión para continuar
         </Text>
@@ -101,10 +106,10 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
+  logo: {
+    width: '100%',
+    height: 96,
+    alignSelf: 'center',
   },
   subtitle: {
     fontSize: 14,

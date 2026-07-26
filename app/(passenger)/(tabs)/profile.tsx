@@ -1,5 +1,5 @@
 import { PlaceholderScreen } from '@/components/PlaceholderScreen';
 
 export default function PassengerProfileScreen() {
-  return <PlaceholderScreen title="Perfil" />;
+  return <PlaceholderScreen title="Perfil" showLogout />;
 }
