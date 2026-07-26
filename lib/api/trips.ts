@@ -131,3 +131,12 @@ export async function getTripHistory(page: number, limit: number): Promise<Pagin
   });
   return data;
 }
+
+export async function acceptTrip(tripId: string): Promise<Trip> {
+  const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/accept`);
+  return data;
+}
+
+export async function rejectTrip(tripId: string): Promise<void> {
+  await apiClient.patch(`/trips/${tripId}/reject`);
+}
