@@ -90,6 +90,10 @@ export type TripDetail = {
   driverPhone?: string | null;
   passengerPhone?: string | null;
   driver?: TripDriverInfo;
+  passenger?: {
+    name: string;
+    profilePhotoUrl: string | null;
+  };
 };
 
 export type DriverLocation = {
@@ -139,4 +143,24 @@ export async function acceptTrip(tripId: string): Promise<Trip> {
 
 export async function rejectTrip(tripId: string): Promise<void> {
   await apiClient.patch(`/trips/${tripId}/reject`);
+}
+
+export async function startTrip(tripId: string): Promise<Trip> {
+  const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/start`);
+  return data;
+}
+
+export async function markDriverArrived(tripId: string): Promise<Trip> {
+  const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/arrived`);
+  return data;
+}
+
+export async function reportNoShow(tripId: string): Promise<Trip> {
+  const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/no-show`);
+  return data;
+}
+
+export async function completeTrip(tripId: string): Promise<Trip> {
+  const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/complete`);
+  return data;
 }

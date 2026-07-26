@@ -46,7 +46,10 @@ export default function IncomingRequestScreen() {
     setIsResponding(true);
     try {
       await acceptTrip(tripId);
-      router.replace('/(driver)/(tabs)');
+      router.replace({
+        pathname: '/(driver)/trip/[tripId]',
+        params: { tripId, passengerName: passengerName ?? '' },
+      });
     } catch (err) {
       setError(getApiErrorMessage(err));
       setIsResponding(false);

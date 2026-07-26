@@ -6,6 +6,7 @@ export default function DriverLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="complete-profile" />
       <Stack.Screen name="request/[tripId]" />
+      <Stack.Screen name="trip/[tripId]" />
     </Stack>
   );
 }
