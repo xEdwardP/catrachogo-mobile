@@ -8,4 +8,5 @@ if (!apiUrl) {
 
 export const Config = {
   apiUrl,
+  supportEmail: process.env.EXPO_PUBLIC_SUPPORT_EMAIL ?? null,
 };

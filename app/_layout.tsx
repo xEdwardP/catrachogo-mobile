@@ -55,6 +55,8 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkNavigationTheme : LightNavigationTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="legal/[doc]" />
 
         <Stack.Protected guard={!session}>
           <Stack.Screen name="(auth)" />
