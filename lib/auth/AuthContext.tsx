@@ -53,6 +53,8 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
   completePhone: (phone: string) => Promise<void>;
+  updateName: (name: string) => Promise<void>;
+  updateProfilePhoto: (profilePhotoUrl: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -140,6 +142,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function updateName(name: string) {
+    try {
+      const { data } = await apiClient.patch<{ name: string }>('/auth/name', { name });
+      setProfile((prev) => (prev ? { ...prev, name: data.name } : prev));
+      if (session) {
+        const updatedSession = { ...session, name: data.name };
+        await saveSession(updatedSession);
+        setSession(updatedSession);
+      }
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error));
+    }
+  }
+
+  async function updateProfilePhoto(profilePhotoUrl: string) {
+    try {
+      const { data } = await apiClient.patch<{ profilePhotoUrl: string | null }>(
+        '/auth/profile-photo',
+        { profilePhotoUrl },
+      );
+      setProfile((prev) => (prev ? { ...prev, profilePhotoUrl: data.profilePhotoUrl } : prev));
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error));
+    }
+  }
+
   async function logout() {
     await clearSession();
     setSession(null);
@@ -148,7 +176,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   return (
     <AuthContext.Provider
-      value={{ session, profile, isLoading, login, register, completePhone, logout }}
+      value={{
+        session,
+        profile,
+        isLoading,
+        login,
+        register,
+        completePhone,
+        updateName,
+        updateProfilePhoto,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

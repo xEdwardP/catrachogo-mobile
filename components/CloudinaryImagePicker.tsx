@@ -1,11 +1,9 @@
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { uploadToCloudinary } from '@/lib/cloudinary/upload';
+import { useImageUpload } from '@/lib/cloudinary/useImageUpload';
 
 type Props = {
   label: string;
@@ -16,64 +14,12 @@ type Props = {
 export function CloudinaryImagePicker({ label, value, onUploaded }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const [isUploading, setIsUploading] = useState(false);
-
-  async function upload(uri: string) {
-    setIsUploading(true);
-    try {
-      const url = await uploadToCloudinary(uri);
-      onUploaded(url);
-    } catch {
-      Alert.alert('No se pudo subir la imagen', 'Intenta de nuevo.');
-    } finally {
-      setIsUploading(false);
-    }
-  }
-
-  async function pickFromCamera() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permiso necesario', 'Activa el acceso a la cámara en los ajustes del teléfono.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
-      quality: 0.7,
-      allowsEditing: true,
-    });
-    if (!result.canceled) {
-      upload(result.assets[0].uri);
-    }
-  }
-
-  async function pickFromLibrary() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permiso necesario', 'Activa el acceso a tus fotos en los ajustes del teléfono.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      quality: 0.7,
-      allowsEditing: true,
-    });
-    if (!result.canceled) {
-      upload(result.assets[0].uri);
-    }
-  }
-
-  function handlePress() {
-    Alert.alert(label, 'Elige una opción', [
-      { text: 'Tomar foto', onPress: pickFromCamera },
-      { text: 'Elegir de galería', onPress: pickFromLibrary },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
-  }
+  const { isUploading, promptForImage } = useImageUpload(onUploaded);
 
   return (
     <Pressable
       style={[styles.container, { borderColor: value ? colors.tint : colors.textSecondary }]}
-      onPress={handlePress}
+      onPress={() => promptForImage(label)}
       disabled={isUploading}
     >
       {value ? (

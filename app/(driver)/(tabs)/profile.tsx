@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { ProfileScreen } from '@/components/ProfileScreen';
 
 export default function DriverProfileScreen() {
-  return <PlaceholderScreen title="Perfil" />;
+  return <ProfileScreen />;
 }
