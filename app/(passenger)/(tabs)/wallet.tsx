@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { WalletScreen } from '@/components/WalletScreen';
 
 export default function PassengerWalletScreen() {
-  return <PlaceholderScreen title="Wallet" />;
+  return <WalletScreen emptyStateText="Recarga tu wallet para empezar a usar CatrachoGo." />;
 }
