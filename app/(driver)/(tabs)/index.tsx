@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { NotificationBell } from '@/components/NotificationBell';
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -117,10 +118,11 @@ export default function DriverHomeScreen() {
             {profile?.name.charAt(0).toUpperCase() ?? '?'}
           </Text>
         </View>
-        <View>
+        <View style={styles.greetingBlock}>
           <Text style={[styles.greetingLabel, { color: colors.textSecondary }]}>Hola,</Text>
           <Text style={styles.greetingName}>{firstName}</Text>
         </View>
+        <NotificationBell />
       </View>
 
       <Pressable
@@ -232,6 +234,9 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  greetingBlock: {
+    flex: 1,
   },
   greetingLabel: {
     fontSize: 12,
