@@ -5,12 +5,14 @@ import { Linking, Pressable, StyleSheet } from 'react-native';
 import { CancelTripModal } from '@/components/CancelTripModal';
 import { EndTripEarlyModal } from '@/components/EndTripEarlyModal';
 import { RatingModal } from '@/components/RatingModal';
+import { ReportIncidentModal } from '@/components/ReportIncidentModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap, type TripMapMarker } from '@/components/TripMap';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getDriverPublicProfile } from '@/lib/api/drivers';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { createIncidentReport, type IncidentReportCategory } from '@/lib/api/incidentReports';
 import {
   cancelTrip,
   endTripEarly,
@@ -53,6 +55,10 @@ export default function TripInProgressScreen() {
   const [isEndingEarly, setIsEndingEarly] = useState(false);
   const [ratingDismissed, setRatingDismissed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSent, setReportSent] = useState(false);
   const fetchedDriverIdRef = useRef<string | null>(null);
 
   usePolling(
@@ -152,6 +158,24 @@ export default function TripInProgressScreen() {
   function handleCall() {
     if (trip?.driverPhone) {
       Linking.openURL(`tel:${trip.driverPhone}`);
+    }
+  }
+
+  async function handleSubmitReport(payload: {
+    category: IncidentReportCategory;
+    description: string;
+  }) {
+    if (!tripId) return;
+    setReportError(null);
+    setIsSubmittingReport(true);
+    try {
+      await createIncidentReport({ tripId, ...payload });
+      setShowReportModal(false);
+      setReportSent(true);
+    } catch (error) {
+      setReportError(getApiErrorMessage(error));
+    } finally {
+      setIsSubmittingReport(false);
     }
   }
 
@@ -281,6 +305,19 @@ export default function TripInProgressScreen() {
             </Pressable>
           </>
         )}
+
+        {driver &&
+          (reportSent ? (
+            <Text style={[styles.reportSentText, { color: colors.textSecondary }]}>
+              Reporte enviado. Administración lo revisará.
+            </Text>
+          ) : (
+            <Pressable style={styles.reportButton} onPress={() => setShowReportModal(true)}>
+              <Text style={[styles.reportButtonText, { color: colors.textSecondary }]}>
+                Reportar un problema
+              </Text>
+            </Pressable>
+          ))}
       </View>
 
       <CancelTripModal
@@ -296,6 +333,17 @@ export default function TripInProgressScreen() {
         isSubmitting={isEndingEarly}
         onConfirm={handleEndTripEarly}
         onDismiss={() => setShowEndEarlyModal(false)}
+      />
+
+      <ReportIncidentModal
+        visible={showReportModal}
+        isSubmitting={isSubmittingReport}
+        error={reportError}
+        onSubmit={handleSubmitReport}
+        onDismiss={() => {
+          setReportError(null);
+          setShowReportModal(false);
+        }}
       />
 
       {shouldShowRating && driver?.userId && (
@@ -408,6 +456,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
+  },
+  reportButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  reportButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reportSentText: {
+    marginTop: 12,
+    fontSize: 12,
     textAlign: 'center',
   },
 });

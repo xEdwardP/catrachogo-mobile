@@ -13,9 +13,17 @@ type Props = {
   title: string;
   isTrackable: (trip: Trip) => boolean;
   onPressTrip: (trip: Trip) => void;
+  canReportTrip?: (trip: Trip) => boolean;
+  onReportTrip?: (trip: Trip) => void;
 };
 
-export function TripHistoryList({ title, isTrackable, onPressTrip }: Props) {
+export function TripHistoryList({
+  title,
+  isTrackable,
+  onPressTrip,
+  canReportTrip,
+  onReportTrip,
+}: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
@@ -90,28 +98,41 @@ export function TripHistoryList({ title, isTrackable, onPressTrip }: Props) {
             const badgeColors = TRIP_STATUS_BADGE_COLORS[item.status];
             const trackable = isTrackable(item);
             return (
-              <Pressable
-                style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}
-                onPress={() => onPressTrip(item)}
-                disabled={!trackable}
-              >
-                <View style={[styles.cardHeader, styles.transparentBackground]}>
-                  <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
-                    <Text style={[styles.badgeText, { color: badgeColors.text }]}>
-                      {TRIP_STATUS_LABELS[item.status]}
-                    </Text>
+              <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
+                <Pressable
+                  style={styles.cardMain}
+                  onPress={() => onPressTrip(item)}
+                  disabled={!trackable}
+                >
+                  <View style={[styles.cardHeader, styles.transparentBackground]}>
+                    <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
+                      <Text style={[styles.badgeText, { color: badgeColors.text }]}>
+                        {TRIP_STATUS_LABELS[item.status]}
+                      </Text>
+                    </View>
+                    <Text style={styles.fareText}>L. {item.fare.toFixed(2)}</Text>
                   </View>
-                  <Text style={styles.fareText}>L. {item.fare.toFixed(2)}</Text>
-                </View>
-                <Text style={styles.destinationText} numberOfLines={1}>
-                  {item.destinationAddress}
-                </Text>
-                {item.requestedAt && (
-                  <Text style={[styles.dateText, { color: colors.textSecondary }]}>
-                    {new Date(item.requestedAt).toLocaleString('es-HN')}
+                  <Text style={styles.destinationText} numberOfLines={1}>
+                    {item.destinationAddress}
                   </Text>
+                  {item.requestedAt && (
+                    <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+                      {new Date(item.requestedAt).toLocaleString('es-HN')}
+                    </Text>
+                  )}
+                </Pressable>
+                {onReportTrip && canReportTrip?.(item) && (
+                  <Pressable
+                    style={styles.reportButton}
+                    onPress={() => onReportTrip(item)}
+                    hitSlop={6}
+                  >
+                    <Text style={[styles.reportButtonText, { color: colors.textSecondary }]}>
+                      Reportar
+                    </Text>
+                  </Pressable>
                 )}
-              </Pressable>
+              </View>
             );
           }}
         />
@@ -155,6 +176,9 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 6,
   },
+  cardMain: {
+    gap: 6,
+  },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,6 +205,14 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
+  },
+  reportButton: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  reportButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   footerLoading: {
     paddingVertical: 16,
