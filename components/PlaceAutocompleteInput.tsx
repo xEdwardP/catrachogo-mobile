@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -38,9 +38,16 @@ export function PlaceAutocompleteInput({
   const [predictions, setPredictions] = useState<PlaceAutocompletePrediction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextSearchRef = useRef(false);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      setIsSearching(false);
+      return;
+    }
 
     if (!value.trim()) {
       setPredictions([]);
@@ -65,6 +72,7 @@ export function PlaceAutocompleteInput({
     setPredictions([]);
     try {
       const details = await getPlaceDetails(prediction.placeId);
+      skipNextSearchRef.current = true;
       onChangeValue(details.address);
       onSelect(details);
     } catch {}
@@ -90,16 +98,15 @@ export function PlaceAutocompleteInput({
             { backgroundColor: colors.background, borderColor: colors.textSecondary },
           ]}
         >
-          <FlatList
-            data={predictions}
-            keyExtractor={(item) => item.placeId}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <Pressable style={styles.predictionRow} onPress={() => handleSelect(item)}>
-                <Text numberOfLines={1}>{item.description}</Text>
-              </Pressable>
-            )}
-          />
+          {predictions.map((prediction) => (
+            <Pressable
+              key={prediction.placeId}
+              style={styles.predictionRow}
+              onPress={() => handleSelect(prediction)}
+            >
+              <Text numberOfLines={1}>{prediction.description}</Text>
+            </Pressable>
+          ))}
         </View>
       )}
     </View>
@@ -124,7 +131,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     marginTop: 4,
-    maxHeight: 220,
   },
   predictionRow: {
     paddingHorizontal: 14,
