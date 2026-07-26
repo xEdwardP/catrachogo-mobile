@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { TopupModal } from '@/components/TopupModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { WALLET_TRANSACTION_LABELS } from '@/constants/WalletTransactionLabels';
@@ -12,9 +13,10 @@ const PAGE_SIZE = 20;
 
 type Props = {
   emptyStateText: string;
+  showTopupButton?: boolean;
 };
 
-export function WalletScreen({ emptyStateText }: Props) {
+export function WalletScreen({ emptyStateText, showTopupButton }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
@@ -28,13 +30,18 @@ export function WalletScreen({ emptyStateText }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTopupVisible, setIsTopupVisible] = useState(false);
 
-  useEffect(() => {
+  const loadBalance = useCallback(() => {
     getWalletBalance()
       .then((result) => setBalance(result.balance))
       .catch((err) => setBalanceError(getApiErrorMessage(err)))
       .finally(() => setIsLoadingBalance(false));
   }, []);
+
+  useEffect(() => {
+    loadBalance();
+  }, [loadBalance]);
 
   const loadPage = useCallback((pageToLoad: number) => {
     getWalletTransactions(pageToLoad, PAGE_SIZE)
@@ -63,6 +70,14 @@ export function WalletScreen({ emptyStateText }: Props) {
     loadPage(nextPage);
   }
 
+  function handleTopupSuccess(newBalance: number) {
+    setBalance(newBalance);
+    setIsTopupVisible(false);
+    setIsLoading(true);
+    setPage(1);
+    loadPage(1);
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Wallet</Text>
@@ -78,6 +93,21 @@ export function WalletScreen({ emptyStateText }: Props) {
           {balanceError}
         </Text>
       )}
+
+      {showTopupButton && (
+        <Pressable
+          style={[styles.topupButton, { borderColor: colors.tint }]}
+          onPress={() => setIsTopupVisible(true)}
+        >
+          <Text style={{ color: colors.tint, fontWeight: '600' }}>Recargar con PayPal</Text>
+        </Pressable>
+      )}
+
+      <TopupModal
+        visible={isTopupVisible}
+        onDismiss={() => setIsTopupVisible(false)}
+        onSuccess={handleTopupSuccess}
+      />
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         Historial de movimientos
@@ -169,6 +199,13 @@ const styles = StyleSheet.create({
   balanceErrorText: {
     fontSize: 12,
     marginTop: 6,
+  },
+  topupButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
   },
   sectionTitle: {
     fontSize: 14,

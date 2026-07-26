@@ -34,3 +34,26 @@ export async function getWalletTransactions(
   });
   return data;
 }
+
+export type TopupOrder = {
+  orderId: string;
+  approveUrl: string | null;
+};
+
+export async function createTopupOrder(
+  amount: number,
+  returnUrl: string,
+  cancelUrl: string,
+): Promise<TopupOrder> {
+  const { data } = await apiClient.post<TopupOrder>('/wallet/topup/create-order', {
+    amount,
+    returnUrl,
+    cancelUrl,
+  });
+  return data;
+}
+
+export async function confirmTopup(orderId: string): Promise<{ balance: number }> {
+  const { data } = await apiClient.post<{ balance: number }>('/wallet/topup/confirm', { orderId });
+  return data;
+}
