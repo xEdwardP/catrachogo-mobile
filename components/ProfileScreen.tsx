@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -172,6 +173,14 @@ export function ProfileScreen() {
           ) : (
             <Text style={styles.primaryButtonText}>Guardar cambios</Text>
           )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.secondaryButton, { borderColor: colors.textSecondary }]}
+          onPress={() => router.push('/support')}
+          disabled={isSubmitting}
+        >
+          <Text style={{ color: colors.tint, fontWeight: '600' }}>Ayuda y soporte</Text>
         </Pressable>
 
         <Pressable
