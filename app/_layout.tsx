@@ -57,6 +57,7 @@ function RootLayoutNav() {
         <Stack.Screen name="index" />
         <Stack.Screen name="support" />
         <Stack.Screen name="legal/[doc]" />
+        <Stack.Screen name="notifications" />
 
         <Stack.Protected guard={!session}>
           <Stack.Screen name="(auth)" />

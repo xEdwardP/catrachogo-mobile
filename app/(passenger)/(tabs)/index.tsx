@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 
+import { NotificationBell } from '@/components/NotificationBell';
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
 import { SaveFavoriteAddressModal } from '@/components/SaveFavoriteAddressModal';
 import { Text, View } from '@/components/Themed';
@@ -139,7 +140,10 @@ export default function PassengerHomeScreen() {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.greeting}>Hola, {firstName}</Text>
+      <View style={styles.greetingRow}>
+        <Text style={styles.greeting}>Hola, {firstName}</Text>
+        <NotificationBell />
+      </View>
 
       <PlaceAutocompleteInput
         placeholder="¿A dónde vas?"
@@ -248,7 +252,14 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   greeting: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '700',
   },
