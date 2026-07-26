@@ -98,7 +98,7 @@ export default function RequestTripScreen() {
     if (!origin) return;
     setIsRequesting(true);
     try {
-      await createTrip({
+      const trip = await createTrip({
         originLat: origin.lat,
         originLng: origin.lng,
         originAddress,
@@ -106,11 +106,12 @@ export default function RequestTripScreen() {
         destinationLng: destination.lng,
         destinationAddress,
       });
-      Alert.alert('Viaje solicitado', 'Buscando un conductor cercano...');
-      router.replace('/(passenger)/(tabs)');
+      router.replace({
+        pathname: '/(passenger)/trip/[tripId]',
+        params: { tripId: trip.id, destinationAddress },
+      });
     } catch (error) {
       Alert.alert('No se pudo solicitar el viaje', getApiErrorMessage(error));
-    } finally {
       setIsRequesting(false);
     }
   }
