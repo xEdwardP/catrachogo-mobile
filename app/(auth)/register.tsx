@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -59,6 +60,11 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.container}>
+        <Image
+          source={require('@/assets/logo/logo_without_text.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>Crear cuenta</Text>
 
         <View style={styles.roleRow}>
@@ -149,6 +155,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 12,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    alignSelf: 'center',
   },
   title: {
     fontSize: 24,
