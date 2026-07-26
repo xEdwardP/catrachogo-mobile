@@ -34,3 +34,23 @@ export async function getDriverSummary(): Promise<DriverSummary> {
   const { data } = await apiClient.get<DriverSummary>('/drivers/summary');
   return data;
 }
+
+export async function updateAvailability(available: boolean): Promise<{ available: boolean }> {
+  const { data } = await apiClient.patch<{ available: boolean }>('/drivers/availability', {
+    available,
+  });
+  return data;
+}
+
+export type PendingTripRequest = {
+  id: string;
+  passengerName: string;
+  originAddress: string;
+  distanceKm: number;
+  fare: number;
+};
+
+export async function getPendingRequest(): Promise<PendingTripRequest | null> {
+  const { data } = await apiClient.get<PendingTripRequest | null>('/drivers/pending-requests');
+  return data ?? null;
+}
