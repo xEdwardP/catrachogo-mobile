@@ -69,7 +69,7 @@ function RootLayoutNav() {
         </Stack.Protected>
 
         <Stack.Protected guard={hasCompleteProfile && session?.role === 'driver'}>
-          <Stack.Screen name="(driver)/(tabs)" />
+          <Stack.Screen name="(driver)" />
         </Stack.Protected>
 
         <Stack.Protected guard={hasCompleteProfile && session?.role === 'admin'}>

@@ -14,3 +14,10 @@ apiClient.interceptors.request.use(async (requestConfig) => {
   }
   return requestConfig;
 });
+
+export function getApiStatusCode(error: unknown): number | undefined {
+  if (axios.isAxiosError(error)) {
+    return error.response?.status;
+  }
+  return undefined;
+}
