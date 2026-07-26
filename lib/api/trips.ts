@@ -117,3 +117,17 @@ export async function getDriverLocation(tripId: string): Promise<DriverLocation 
   const { data } = await apiClient.get<DriverLocation | null>(`/trips/${tripId}/driver-location`);
   return data ?? null;
 }
+
+export type PaginatedResult<T> = {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export async function getTripHistory(page: number, limit: number): Promise<PaginatedResult<Trip>> {
+  const { data } = await apiClient.get<PaginatedResult<Trip>>('/trips/history', {
+    params: { page, limit },
+  });
+  return data;
+}
