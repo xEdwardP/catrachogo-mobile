@@ -5,6 +5,7 @@ export default function PassengerLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="request-trip" />
+      <Stack.Screen name="trip/[tripId]" />
     </Stack>
   );
 }
