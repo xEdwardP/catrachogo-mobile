@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/PlaceholderScreen';
+import { WalletScreen } from '@/components/WalletScreen';
 
 export default function DriverWalletScreen() {
-  return <PlaceholderScreen title="Wallet" />;
+  return <WalletScreen emptyStateText="Aquí verás tus ganancias y retiros." />;
 }
