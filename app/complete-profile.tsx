@@ -12,8 +12,7 @@ import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuth } from '@/lib/auth/AuthContext';
-
-const PHONE_PATTERN = /^\+?[0-9]{8,15}$/;
+import { PHONE_PATTERN, sanitizePhoneInput } from '@/lib/phone';
 
 export default function CompleteProfileScreen() {
   const colorScheme = useColorScheme();
@@ -55,7 +54,7 @@ export default function CompleteProfileScreen() {
           placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(value) => setPhone(sanitizePhoneInput(value))}
         />
 
         {error && <Text style={styles.error}>{error}</Text>}
