@@ -18,7 +18,7 @@ type Props = {
   visible: boolean;
   isSubmitting: boolean;
   chargesFee: boolean;
-  onConfirm: (reason: CancellationReason) => void;
+  onConfirm: (reason: CancellationReason | undefined) => void;
   onDismiss: () => void;
 };
 
@@ -31,7 +31,7 @@ export function CancelTripModal({
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const [reason, setReason] = useState<CancellationReason>(PASSENGER_CANCELLATION_REASONS[0]);
+  const [reason, setReason] = useState<CancellationReason | null>(null);
 
   return (
     <ModalCard visible={visible} onDismiss={onDismiss}>
@@ -62,6 +62,16 @@ export function CancelTripModal({
             </Pressable>
           );
         })}
+        <Pressable
+          style={[
+            styles.reasonRow,
+            { borderColor: reason === null ? colors.tint : colors.textSecondary },
+            reason === null && { backgroundColor: colors.surfaceHighlight },
+          ]}
+          onPress={() => setReason(null)}
+        >
+          <Text style={{ color: colors.textSecondary }}>Omitir, prefiero no decir</Text>
+        </Pressable>
       </View>
 
       <View style={styles.buttonRow}>
@@ -74,7 +84,7 @@ export function CancelTripModal({
         />
         <Button
           title="Sí, cancelar"
-          onPress={() => onConfirm(reason)}
+          onPress={() => onConfirm(reason ?? undefined)}
           loading={isSubmitting}
           style={styles.button}
         />

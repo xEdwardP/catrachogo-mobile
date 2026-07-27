@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native
 
 import { Text, View } from '@/components/Themed';
 import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripStatusLabels';
@@ -16,6 +17,7 @@ type Props = {
   onPressTrip: (trip: Trip) => void;
   canReportTrip?: (trip: Trip) => boolean;
   onReportTrip?: (trip: Trip) => void;
+  onMenuPress?: () => void;
 };
 
 export function TripHistoryList({
@@ -24,6 +26,7 @@ export function TripHistoryList({
   onPressTrip,
   canReportTrip,
   onReportTrip,
+  onMenuPress,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
@@ -64,7 +67,7 @@ export function TripHistoryList({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <ScreenHeader title={title} onMenuPress={onMenuPress} />
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -147,11 +150,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 56,
     paddingHorizontal: 16,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 16,
   },
   centered: {
     flex: 1,

@@ -7,7 +7,12 @@ export default {
     text: '#211D1B',
     textSecondary: '#6B6560',
     background: '#F6F1EC',
-    surfaceHighlight: '#FDEAE3',
+    // Blanco puro, no el "brand-pale" (#FDEAE3) de catrachogo-web: ese tono es casi
+    // igual de claro que el fondo (#F6F1EC), así que las tarjetas casi no se
+    // distinguían del fondo general. La web tampoco usa brand-pale para tarjetas
+    // (usa bg-white + sombra; brand-pale ahí es solo para acentos puntuales como
+    // círculos de ícono) — blanco puro da el contraste real que faltaba.
+    surfaceHighlight: '#FFFFFF',
     tint: primary,
     success,
     tabIconDefault: '#B8B0A8',

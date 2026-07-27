@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
@@ -27,11 +28,15 @@ export function NotificationBell() {
 
   return (
     <Pressable
-      style={[styles.container, { borderColor: colors.tint }]}
+      style={[styles.container, { backgroundColor: colors.surfaceHighlight }]}
       onPress={() => router.push('/notifications')}
       hitSlop={6}
     >
-      <Text style={[styles.label, { color: colors.tint }]}>Avisos</Text>
+      <Ionicons
+        name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+        size={20}
+        color={colors.tint}
+      />
       {unreadCount > 0 && (
         <View style={[styles.badge, { backgroundColor: colors.tint }]}>
           <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -43,23 +48,20 @@ export function NotificationBell() {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
+    justifyContent: 'center',
   },
   badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
@@ -8,7 +9,11 @@ import { ModalCard } from '@/components/ui/ModalCard';
 import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { SAVED_ADDRESS_LABEL_OPTIONS, SAVED_ADDRESS_LABELS } from '@/constants/SavedAddressLabels';
+import {
+  SAVED_ADDRESS_ICONS,
+  SAVED_ADDRESS_LABEL_OPTIONS,
+  SAVED_ADDRESS_LABELS,
+} from '@/constants/SavedAddressLabels';
 import { Typography } from '@/constants/Typography';
 import type { CreateSavedAddressPayload, SavedAddressLabel } from '@/lib/api/savedAddresses';
 
@@ -87,6 +92,7 @@ export function SaveFavoriteAddressModal({
       </Text>
       <PlaceAutocompleteInput
         placeholder="Busca una dirección"
+        icon="search-outline"
         value={addressText}
         onChangeValue={handleChangeAddressText}
         locationBias={locationBias}
@@ -117,6 +123,11 @@ export function SaveFavoriteAddressModal({
               onPress={() => setLabel(option)}
               disabled={isSubmitting}
             >
+              <Ionicons
+                name={SAVED_ADDRESS_ICONS[option]}
+                size={16}
+                color={isSelected ? colors.tint : colors.textSecondary}
+              />
               <Text style={isSelected ? { color: colors.tint, fontWeight: '600' } : undefined}>
                 {SAVED_ADDRESS_LABELS[option]}
               </Text>
@@ -174,6 +185,9 @@ const styles = StyleSheet.create({
   },
   labelChip: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 10,

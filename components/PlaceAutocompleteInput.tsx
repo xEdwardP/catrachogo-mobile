@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput } from 'react-native';
 
@@ -22,9 +23,18 @@ type Props = {
   onChangeValue: (value: string) => void;
   locationBias: { lat: number; lng: number };
   onSelect: (place: PlaceSelection) => void;
+  icon?: keyof typeof Ionicons.glyphMap;
 };
 
 const DEBOUNCE_MS = 300;
+
+const CARD_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 8,
+  elevation: 3,
+};
 
 export function PlaceAutocompleteInput({
   placeholder,
@@ -32,6 +42,7 @@ export function PlaceAutocompleteInput({
   onChangeValue,
   locationBias,
   onSelect,
+  icon,
 }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
@@ -78,9 +89,15 @@ export function PlaceAutocompleteInput({
     } catch {}
   }
 
+  function handleClear() {
+    onChangeValue('');
+    setPredictions([]);
+  }
+
   return (
-    <View>
-      <View style={[styles.inputRow, { borderColor: colors.textSecondary }]}>
+    <View style={styles.transparentBackground}>
+      <View style={[styles.inputRow, { backgroundColor: colors.surfaceHighlight }, CARD_SHADOW]}>
+        {icon && <Ionicons name={icon} size={19} color={colors.textSecondary} />}
         <TextInput
           style={[styles.input, { color: colors.text }]}
           placeholder={placeholder}
@@ -88,23 +105,35 @@ export function PlaceAutocompleteInput({
           value={value}
           onChangeText={onChangeValue}
         />
-        {isSearching && <ActivityIndicator size="small" color={colors.tint} />}
+        {isSearching ? (
+          <ActivityIndicator size="small" color={colors.tint} />
+        ) : (
+          value.length > 0 && (
+            <Pressable onPress={handleClear} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            </Pressable>
+          )
+        )}
       </View>
 
       {predictions.length > 0 && (
-        <View
-          style={[
-            styles.dropdown,
-            { backgroundColor: colors.background, borderColor: colors.textSecondary },
-          ]}
-        >
-          {predictions.map((prediction) => (
+        <View style={[styles.dropdown, { backgroundColor: colors.surfaceHighlight }, CARD_SHADOW]}>
+          {predictions.map((prediction, index) => (
             <Pressable
               key={prediction.placeId}
-              style={styles.predictionRow}
+              style={[
+                styles.predictionRow,
+                index < predictions.length - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.background,
+                },
+              ]}
               onPress={() => handleSelect(prediction)}
             >
-              <Text numberOfLines={1}>{prediction.description}</Text>
+              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+              <Text style={styles.predictionText} numberOfLines={1}>
+                {prediction.description}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -114,26 +143,35 @@ export function PlaceAutocompleteInput({
 }
 
 const styles = StyleSheet.create({
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    gap: 8,
+    gap: 10,
   },
   input: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 16,
   },
   dropdown: {
-    borderWidth: 1,
-    borderRadius: 8,
-    marginTop: 4,
+    borderRadius: 14,
+    marginTop: 8,
+    overflow: 'hidden',
   },
   predictionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
+  },
+  predictionText: {
+    flex: 1,
+    fontSize: 14,
   },
 });

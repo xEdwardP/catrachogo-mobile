@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Alert, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
@@ -30,8 +31,11 @@ export function RatingModal({ visible, tripId, ratedId, ratedName, onDone }: Pro
     setIsSubmitting(true);
     try {
       await createRating({ tripId, ratedId, score, comment: comment.trim() || undefined });
-      onDone();
+      Alert.alert('¡Gracias!', 'Tu calificación se envió correctamente.', [
+        { text: 'OK', onPress: onDone },
+      ]);
     } catch {
+      Alert.alert('No se pudo enviar tu calificación', 'Intenta de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -47,11 +51,11 @@ export function RatingModal({ visible, tripId, ratedId, ratedName, onDone }: Pro
       <View style={styles.starsRow}>
         {[1, 2, 3, 4, 5].map((value) => (
           <Pressable key={value} onPress={() => setScore(value)} hitSlop={6}>
-            <Text
-              style={[styles.star, { color: value <= score ? colors.tint : colors.textSecondary }]}
-            >
-              ★
-            </Text>
+            <Ionicons
+              name={value <= score ? 'star' : 'star-outline'}
+              size={34}
+              color={value <= score ? colors.tint : colors.textSecondary}
+            />
           </Pressable>
         ))}
       </View>
@@ -92,9 +96,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 16,
-  },
-  star: {
-    fontSize: 34,
   },
   commentInput: {
     minHeight: 72,

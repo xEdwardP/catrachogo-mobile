@@ -1,24 +1,45 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { TopupModal } from '@/components/TopupModal';
 import { WithdrawalModal } from '@/components/WithdrawalModal';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { WALLET_TRANSACTION_LABELS } from '@/constants/WalletTransactionLabels';
+import {
+  WALLET_TRANSACTION_ICONS,
+  WALLET_TRANSACTION_LABELS,
+} from '@/constants/WalletTransactionLabels';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { getWalletBalance, getWalletTransactions, type WalletTransaction } from '@/lib/api/wallet';
 
 const PAGE_SIZE = 20;
 
+const CARD_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 3,
+};
+
 type Props = {
   emptyStateText: string;
   showTopupButton?: boolean;
   showWithdrawalButton?: boolean;
+  onMenuPress?: () => void;
 };
 
-export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalButton }: Props) {
+export function WalletScreen({
+  emptyStateText,
+  showTopupButton,
+  showWithdrawalButton,
+  onMenuPress,
+}: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
@@ -94,10 +115,15 @@ export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalBu
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Wallet</Text>
+      <ScreenHeader title="Wallet" onMenuPress={onMenuPress} />
 
-      <View style={[styles.balanceCard, { backgroundColor: colors.success }]}>
-        <Text style={styles.balanceLabel}>Saldo disponible</Text>
+      <View style={[styles.balanceCard, { backgroundColor: colors.success }, CARD_SHADOW]}>
+        <View style={[styles.balanceHeader, styles.transparentBackground]}>
+          <View style={styles.balanceIconCircle}>
+            <Ionicons name="wallet" size={16} color="#fff" />
+          </View>
+          <Text style={styles.balanceLabel}>Saldo disponible</Text>
+        </View>
         <Text style={styles.balanceValue}>
           {isLoadingBalance ? '...' : balanceError ? '—' : `L. ${(balance ?? 0).toFixed(2)}`}
         </Text>
@@ -109,21 +135,29 @@ export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalBu
       )}
 
       {showTopupButton && (
-        <Pressable
-          style={[styles.actionButton, { borderColor: colors.tint }]}
+        <Button
+          variant="secondary"
           onPress={() => setIsTopupVisible(true)}
+          style={styles.actionButton}
         >
-          <Text style={{ color: colors.tint, fontWeight: '600' }}>Recargar con PayPal</Text>
-        </Pressable>
+          <View style={[styles.actionButtonContent, styles.transparentBackground]}>
+            <Ionicons name="add-circle-outline" size={18} color={colors.tint} />
+            <Text style={{ color: colors.tint, fontWeight: '600' }}>Recargar con PayPal</Text>
+          </View>
+        </Button>
       )}
 
       {showWithdrawalButton && (
-        <Pressable
-          style={[styles.actionButton, { borderColor: colors.tint }]}
+        <Button
+          variant="secondary"
           onPress={() => setIsWithdrawalVisible(true)}
+          style={styles.actionButton}
         >
-          <Text style={{ color: colors.tint, fontWeight: '600' }}>Solicitar retiro</Text>
-        </Pressable>
+          <View style={[styles.actionButtonContent, styles.transparentBackground]}>
+            <Ionicons name="arrow-down-circle-outline" size={18} color={colors.tint} />
+            <Text style={{ color: colors.tint, fontWeight: '600' }}>Solicitar retiro</Text>
+          </View>
+        </Button>
       )}
 
       <TopupModal
@@ -153,6 +187,7 @@ export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalBu
         </View>
       ) : transactions.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="wallet-outline" size={26} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             Todavía no tienes movimientos
           </Text>
@@ -176,7 +211,14 @@ export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalBu
             const isCredit = item.amount >= 0;
             const amountColor = isCredit ? colors.success : '#DC2626';
             return (
-              <View style={[styles.row, { backgroundColor: colors.surfaceHighlight }]}>
+              <Card style={styles.row}>
+                <View style={[styles.rowIcon, { backgroundColor: colors.background }]}>
+                  <Ionicons
+                    name={WALLET_TRANSACTION_ICONS[item.type]}
+                    size={18}
+                    color={amountColor}
+                  />
+                </View>
                 <View style={styles.transparentBackground}>
                   <Text style={styles.rowLabel}>
                     {WALLET_TRANSACTION_LABELS[item.type] ?? item.type}
@@ -189,7 +231,7 @@ export function WalletScreen({ emptyStateText, showTopupButton, showWithdrawalBu
                   {isCredit ? '+' : ''}
                   L. {item.amount.toFixed(2)}
                 </Text>
-              </View>
+              </Card>
             );
           }}
         />
@@ -204,15 +246,26 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
   balanceCard: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
-    gap: 4,
+    gap: 6,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   balanceLabel: {
     fontSize: 12,
@@ -222,7 +275,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   balanceValue: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -231,16 +284,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   actionButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
     marginTop: 12,
+  },
+  actionButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 20,
+    marginTop: 24,
     marginBottom: 12,
   },
   centered: {
@@ -265,12 +319,14 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 12,
-    padding: 14,
+    gap: 12,
   },
-  transparentBackground: {
-    backgroundColor: 'transparent',
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowLabel: {
     fontSize: 14,
@@ -283,6 +339,7 @@ const styles = StyleSheet.create({
   rowAmount: {
     fontSize: 14,
     fontWeight: '700',
+    marginLeft: 'auto',
   },
   footerLoading: {
     paddingVertical: 16,
