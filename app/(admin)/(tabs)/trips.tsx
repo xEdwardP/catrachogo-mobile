@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet } from '
 
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
+import { getCancellationReasonLabel } from '@/constants/CancellationReasons';
 import Colors from '@/constants/Colors';
 import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripStatusLabels';
 import { getAdminTrips } from '@/lib/api/admin';
@@ -153,6 +154,11 @@ export default function AdminTripsScreen() {
                 <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                   {new Date(item.requestedAt).toLocaleString('es-HN')}
                 </Text>
+                {item.status === 'cancelled' && (
+                  <Text style={[styles.cancelReasonText, { color: colors.textSecondary }]}>
+                    Motivo: {getCancellationReasonLabel(item.cancelReason)}
+                  </Text>
+                )}
               </View>
             );
           }}
@@ -250,6 +256,10 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
     marginTop: 4,
+  },
+  cancelReasonText: {
+    fontSize: 12,
+    marginTop: 2,
   },
   footerLoading: {
     paddingVertical: 16,

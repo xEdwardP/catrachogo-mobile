@@ -14,27 +14,17 @@ import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
-import {
-  getAdminDrivers,
-  updateDriverVerification,
-  type AdminDriverRow,
-  type VerificationStatus,
-} from '@/lib/api/admin';
+import { getAdminDriverById, updateDriverVerification, type AdminDriverRow } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
 
-const ALL_STATUSES: VerificationStatus[] = ['pending', 'approved', 'rejected'];
-
-const STATUS_LABELS: Record<VerificationStatus, string> = {
+const STATUS_LABELS: Record<AdminDriverRow['verificationStatus'], string> = {
   pending: 'Pendiente de revisión',
   approved: 'Aprobado',
   rejected: 'Rechazado',
 };
 
 export default function AdminDriverDetailScreen() {
-  const { driverId, status: statusParam } = useLocalSearchParams<{
-    driverId: string;
-    status?: VerificationStatus;
-  }>();
+  const { driverId } = useLocalSearchParams<{ driverId: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
@@ -45,26 +35,17 @@ export default function AdminDriverDetailScreen() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const loadDriver = useCallback(async () => {
-    const statusesToTry = statusParam
-      ? [statusParam, ...ALL_STATUSES.filter((value) => value !== statusParam)]
-      : ALL_STATUSES;
+    if (!driverId) return;
     try {
-      for (const status of statusesToTry) {
-        const rows = await getAdminDrivers(status);
-        const found = rows.find((row) => row.id === driverId);
-        if (found) {
-          setDriver(found);
-          setError(null);
-          return;
-        }
-      }
-      setError('No encontramos a este conductor.');
+      const found = await getAdminDriverById(driverId);
+      setDriver(found);
+      setError(null);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
-  }, [driverId, statusParam]);
+  }, [driverId]);
 
   useEffect(() => {
     loadDriver();

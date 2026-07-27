@@ -45,6 +45,7 @@ export type Trip = {
   arrivedAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
+  cancelReason: string | null;
 };
 
 export async function createTrip(input: CreateTripInput): Promise<Trip> {

@@ -136,7 +136,7 @@ export default function AdminDriversScreen() {
                 onPress={() =>
                   router.push({
                     pathname: '/(admin)/driver/[driverId]',
-                    params: { driverId: item.id, status },
+                    params: { driverId: item.id },
                   })
                 }
               >

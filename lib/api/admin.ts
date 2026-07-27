@@ -105,6 +105,11 @@ export async function getAdminDrivers(status: VerificationStatus): Promise<Admin
   return data;
 }
 
+export async function getAdminDriverById(driverId: string): Promise<AdminDriverRow> {
+  const { data } = await apiClient.get<AdminDriverRow>(`/admin/drivers/${driverId}`);
+  return data;
+}
+
 export async function updateDriverVerification(
   driverId: string,
   verificationStatus: 'approved' | 'rejected',
@@ -121,4 +126,37 @@ export async function getAdminTrips(
     params: { status, page, limit },
   });
   return data;
+}
+
+export type WithdrawalStatus = 'pending' | 'completed' | 'rejected';
+
+export type AdminWithdrawalRow = {
+  id: string;
+  driverId: string;
+  paypalEmail: string;
+  amount: number;
+  status: WithdrawalStatus;
+  requestedAt: string;
+  resolvedAt: string | null;
+  driver: {
+    id: string;
+    user: {
+      id: string;
+      name: string;
+    };
+  };
+};
+
+export async function getAdminWithdrawals(status: WithdrawalStatus): Promise<AdminWithdrawalRow[]> {
+  const { data } = await apiClient.get<AdminWithdrawalRow[]>('/admin/withdrawals', {
+    params: { status },
+  });
+  return data;
+}
+
+export async function resolveWithdrawal(
+  requestId: string,
+  status: 'completed' | 'rejected',
+): Promise<void> {
+  await apiClient.patch(`/admin/withdrawals/${requestId}`, { status });
 }

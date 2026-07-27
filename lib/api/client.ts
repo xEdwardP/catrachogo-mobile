@@ -12,6 +12,7 @@ apiClient.interceptors.request.use(async (requestConfig) => {
   if (token) {
     requestConfig.headers.Authorization = `Bearer ${token}`;
   }
+  requestConfig.headers['X-Client-Platform'] = 'mobile';
   return requestConfig;
 });
 

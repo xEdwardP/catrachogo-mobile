@@ -15,3 +15,12 @@ export const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
 };
 
 export const CANCELLATION_FEE_AMOUNT = 25;
+
+function isCancellationReason(value: string): value is CancellationReason {
+  return value in CANCELLATION_REASON_LABELS;
+}
+
+export function getCancellationReasonLabel(reason: string | null): string {
+  if (!reason) return '—';
+  return isCancellationReason(reason) ? CANCELLATION_REASON_LABELS[reason] : reason;
+}
