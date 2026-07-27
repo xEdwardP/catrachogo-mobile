@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import type { VehicleType } from '@/lib/api/drivers';
-import type { TripStatus } from '@/lib/api/trips';
+import type { PaginatedResult, Trip, TripStatus } from '@/lib/api/trips';
 
 type AdminDashboardStatsResponse = {
   tripsByStatus: Record<TripStatus, number>;
@@ -110,4 +110,15 @@ export async function updateDriverVerification(
   verificationStatus: 'approved' | 'rejected',
 ): Promise<void> {
   await apiClient.patch(`/admin/drivers/${driverId}/verification`, { verificationStatus });
+}
+
+export async function getAdminTrips(
+  status: TripStatus | undefined,
+  page: number,
+  limit: number,
+): Promise<PaginatedResult<Trip>> {
+  const { data } = await apiClient.get<PaginatedResult<Trip>>('/admin/trips', {
+    params: { status, page, limit },
+  });
+  return data;
 }
