@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api/client';
 import type { VehicleType } from '@/lib/api/drivers';
+import type { IncidentReportCategory } from '@/lib/api/incidentReports';
 import type { PaginatedResult, Trip, TripStatus } from '@/lib/api/trips';
 
 type AdminDashboardStatsResponse = {
@@ -159,4 +160,31 @@ export async function resolveWithdrawal(
   status: 'completed' | 'rejected',
 ): Promise<void> {
   await apiClient.patch(`/admin/withdrawals/${requestId}`, { status });
+}
+
+export type IncidentReportStatus = 'pending' | 'reviewed';
+
+export type AdminIncidentReportRow = {
+  id: string;
+  category: IncidentReportCategory;
+  description: string;
+  status: IncidentReportStatus;
+  createdAt: string;
+  tripId: string | null;
+  trip: { destinationAddress: string } | null;
+  reporter: { id: string; name: string };
+  reportedDriver: { id: string; name: string } | null;
+};
+
+export async function getAdminIncidentReports(
+  status: IncidentReportStatus,
+): Promise<AdminIncidentReportRow[]> {
+  const { data } = await apiClient.get<AdminIncidentReportRow[]>('/admin/incident-reports', {
+    params: { status },
+  });
+  return data;
+}
+
+export async function markIncidentReportReviewed(id: string): Promise<void> {
+  await apiClient.patch(`/admin/incident-reports/${id}/review`);
 }
