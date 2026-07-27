@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
@@ -11,6 +12,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   type AppNotification,
+  type NotificationType,
 } from '@/lib/api/notifications';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { formatRelativeTime } from '@/lib/time/relativeTime';
@@ -23,6 +25,19 @@ const TRIP_NOTIFICATION_TYPES = new Set([
   'trip_completed',
   'trip_cancelled',
 ]);
+
+const NOTIFICATION_TYPE_ICONS: Record<
+  NotificationType,
+  { read: keyof typeof Ionicons.glyphMap; unread: keyof typeof Ionicons.glyphMap }
+> = {
+  trip_accepted: { read: 'car-outline', unread: 'car' },
+  trip_started: { read: 'navigate-outline', unread: 'navigate' },
+  trip_completed: { read: 'checkmark-circle-outline', unread: 'checkmark-circle' },
+  trip_cancelled: { read: 'close-circle-outline', unread: 'close-circle' },
+  withdrawal_resolved: { read: 'cash-outline', unread: 'cash' },
+  driver_verification_updated: { read: 'shield-checkmark-outline', unread: 'shield-checkmark' },
+  rating_received: { read: 'star-outline', unread: 'star' },
+};
 
 export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
@@ -101,13 +116,15 @@ export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
       <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={{ color: colors.textSecondary }}>← Volver</Text>
+        <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
+        <Text style={{ color: colors.textSecondary }}>Volver</Text>
       </Pressable>
 
       <View style={styles.headerRow}>
         <Text style={styles.title}>Notificaciones</Text>
         {hasUnread && (
-          <Pressable onPress={handleMarkAllRead} hitSlop={6}>
+          <Pressable style={styles.markAllButton} onPress={handleMarkAllRead} hitSlop={6}>
+            <Ionicons name="checkmark-done" size={15} color={colors.tint} />
             <Text style={[styles.markAllText, { color: colors.tint }]}>Marcar todas</Text>
           </Pressable>
         )}
@@ -123,6 +140,7 @@ export default function NotificationsScreen() {
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="notifications-off-outline" size={26} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>No tienes notificaciones</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             Aquí te avisaremos sobre tus viajes, retiros y calificaciones.
@@ -142,30 +160,41 @@ export default function NotificationsScreen() {
               </View>
             ) : null
           }
-          renderItem={({ item }) => (
-            <Pressable
-              style={[
-                styles.card,
-                { backgroundColor: colors.surfaceHighlight },
-                item.read && styles.cardRead,
-              ]}
-              onPress={() => handlePressNotification(item)}
-            >
-              <View
+          renderItem={({ item }) => {
+            const icons = NOTIFICATION_TYPE_ICONS[item.type];
+            return (
+              <Pressable
                 style={[
-                  styles.unreadDot,
-                  { backgroundColor: item.read ? 'transparent' : colors.tint },
+                  styles.card,
+                  { backgroundColor: colors.surfaceHighlight },
+                  item.read && styles.cardRead,
                 ]}
-              />
-              <View style={styles.cardBody}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={[styles.cardText, { color: colors.textSecondary }]}>{item.body}</Text>
-                <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
-                  {formatRelativeTime(item.createdAt)}
-                </Text>
-              </View>
-            </Pressable>
-          )}
+                onPress={() => handlePressNotification(item)}
+              >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: item.read ? colors.background : colors.tint },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.read ? icons.read : icons.unread}
+                    size={18}
+                    color={item.read ? colors.textSecondary : '#fff'}
+                  />
+                </View>
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={[styles.cardText, { color: colors.textSecondary }]}>
+                    {item.body}
+                  </Text>
+                  <Text style={[styles.cardDate, { color: colors.textSecondary }]}>
+                    {formatRelativeTime(item.createdAt)}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
@@ -179,6 +208,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
     paddingVertical: 4,
   },
@@ -192,6 +224,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
+  },
+  markAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   markAllText: {
     fontSize: 13,
@@ -226,11 +263,12 @@ const styles = StyleSheet.create({
   cardRead: {
     opacity: 0.7,
   },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 5,
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardBody: {
     flex: 1,

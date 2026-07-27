@@ -108,7 +108,7 @@ export async function getTripDetail(tripId: string): Promise<TripDetail> {
   return data;
 }
 
-export async function cancelTrip(tripId: string, reason: CancellationReason): Promise<Trip> {
+export async function cancelTrip(tripId: string, reason?: CancellationReason): Promise<Trip> {
   const { data } = await apiClient.patch<Trip>(`/trips/${tripId}/cancel`, { reason });
   return data;
 }

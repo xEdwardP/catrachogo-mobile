@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 
@@ -39,6 +40,10 @@ export default function CompleteProfileScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.surfaceHighlight }]}>
+          <Ionicons name="call-outline" size={28} color={colors.tint} />
+        </View>
+
         <Text style={[Typography.h1, styles.title]}>Un último paso</Text>
         <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
           Necesitamos tu número de teléfono para poder conectarte con un conductor o pasajero.
@@ -51,17 +56,27 @@ export default function CompleteProfileScreen() {
           onChangeText={(value) => setPhone(sanitizePhoneInput(value))}
         />
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error && (
+          <View style={[styles.noticeRow, styles.transparentBackground]}>
+            <Ionicons name="alert-circle" size={14} color="#C0392B" />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        )}
 
         <Button
-          title="Continuar"
           onPress={handleSubmit}
           loading={isSubmitting}
           disabled={!canSubmit}
           style={styles.button}
-        />
+        >
+          <View style={[styles.buttonContent, styles.transparentBackground]}>
+            <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+            <Text style={styles.buttonText}>Continuar</Text>
+          </View>
+        </Button>
 
         <Pressable style={styles.link} onPress={logout}>
+          <Ionicons name="log-out-outline" size={15} color={colors.textSecondary} />
           <Text style={{ color: colors.textSecondary }}>Cerrar sesión</Text>
         </Pressable>
       </View>
@@ -77,12 +92,29 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
   title: {
     textAlign: 'center',
   },
   subtitle: {
     textAlign: 'center',
     marginBottom: 12,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   error: {
     color: '#C0392B',
@@ -91,7 +123,20 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 8,
   },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
   link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'center',
     marginTop: 16,
   },

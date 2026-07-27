@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -12,18 +13,37 @@ import {
 } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useImageUpload } from '@/lib/cloudinary/useImageUpload';
 import { PHONE_PATTERN, sanitizePhoneInput } from '@/lib/phone';
+import { useThemePreference, type ThemePreference } from '@/lib/theme/ThemeContext';
 
 const NAME_MIN_LENGTH = 2;
 
-export function ProfileScreen() {
+const THEME_OPTIONS: {
+  value: ThemePreference;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { value: 'system', label: 'Sistema', icon: 'phone-portrait-outline' },
+  { value: 'light', label: 'Claro', icon: 'sunny-outline' },
+  { value: 'dark', label: 'Oscuro', icon: 'moon-outline' },
+];
+
+type Props = {
+  onMenuPress?: () => void;
+};
+
+export function ProfileScreen({ onMenuPress }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const { profile, updateName, completePhone, updateProfilePhoto, logout } = useAuth();
+  const { preference, setPreference } = useThemePreference();
 
   const [name, setName] = useState(profile?.name ?? '');
   const [phone, setPhone] = useState(profile?.phone ?? '');
@@ -91,10 +111,14 @@ export function ProfileScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Mi perfil</Text>
+        <ScreenHeader title="Mi perfil" onMenuPress={onMenuPress} />
 
         <View style={styles.avatarSection}>
-          <Pressable onPress={() => promptForImage('Foto de perfil')} disabled={isUploading}>
+          <Pressable
+            style={styles.avatarWrapper}
+            onPress={() => promptForImage('Foto de perfil')}
+            disabled={isUploading}
+          >
             {profile.profilePhotoUrl ? (
               <Image source={{ uri: profile.profilePhotoUrl }} style={styles.avatar} />
             ) : (
@@ -108,7 +132,16 @@ export function ProfileScreen() {
                 <Text style={[styles.avatarInitial, { color: colors.tint }]}>{initial}</Text>
               </View>
             )}
+            <View
+              style={[
+                styles.cameraBadge,
+                { backgroundColor: colors.tint, borderColor: colors.background },
+              ]}
+            >
+              <Ionicons name="camera" size={13} color="#fff" />
+            </View>
           </Pressable>
+          <Text style={styles.name}>{profile.name}</Text>
           <Pressable onPress={() => promptForImage('Foto de perfil')} disabled={isUploading}>
             <Text style={[styles.changePhotoText, { color: colors.tint }]}>
               {isUploading ? 'Subiendo...' : 'Cambiar foto'}
@@ -116,19 +149,23 @@ export function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>CORREO</Text>
+        <Card style={styles.card}>
+          <View style={[styles.fieldLabelRow, styles.transparentBackground]}>
+            <Ionicons name="mail-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>CORREO</Text>
+          </View>
           <View style={[styles.readOnlyField, { borderColor: colors.textSecondary }]}>
             <Text style={[styles.readOnlyText, { color: colors.textSecondary }]} numberOfLines={1}>
               {profile.email}
             </Text>
           </View>
 
-          <Text
-            style={[styles.fieldLabel, styles.fieldLabelSpaced, { color: colors.textSecondary }]}
+          <View
+            style={[styles.fieldLabelRow, styles.fieldLabelSpaced, styles.transparentBackground]}
           >
-            NOMBRE
-          </Text>
+            <Ionicons name="person-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>NOMBRE</Text>
+          </View>
           <TextInput
             style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
             placeholder="Tu nombre"
@@ -138,11 +175,12 @@ export function ProfileScreen() {
             editable={!isSubmitting}
           />
 
-          <Text
-            style={[styles.fieldLabel, styles.fieldLabelSpaced, { color: colors.textSecondary }]}
+          <View
+            style={[styles.fieldLabelRow, styles.fieldLabelSpaced, styles.transparentBackground]}
           >
-            TELÉFONO
-          </Text>
+            <Ionicons name="call-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>TELÉFONO</Text>
+          </View>
           <TextInput
             style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
             placeholder="Tu teléfono"
@@ -152,44 +190,89 @@ export function ProfileScreen() {
             onChangeText={(value) => setPhone(sanitizePhoneInput(value))}
             editable={!isSubmitting}
           />
-        </View>
+        </Card>
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error && (
+          <View style={[styles.noticeRow, styles.transparentBackground]}>
+            <Ionicons name="alert-circle" size={14} color="#C0392B" />
+            <Text style={styles.error}>{error}</Text>
+          </View>
+        )}
         {successMessage && (
-          <Text style={[styles.success, { color: colors.success }]}>{successMessage}</Text>
+          <View style={[styles.noticeRow, styles.transparentBackground]}>
+            <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+            <Text style={[styles.success, { color: colors.success }]}>{successMessage}</Text>
+          </View>
         )}
 
-        <Pressable
-          style={[
-            styles.primaryButton,
-            { backgroundColor: colors.tint },
-            (!hasChanges || isSubmitting) && styles.disabled,
-          ]}
+        <Button
           onPress={handleSubmit}
+          loading={isSubmitting}
           disabled={!hasChanges || isSubmitting}
+          style={styles.saveButton}
         >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
+          <View style={[styles.buttonRow, styles.transparentBackground]}>
+            <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
             <Text style={styles.primaryButtonText}>Guardar cambios</Text>
-          )}
-        </Pressable>
+          </View>
+        </Button>
 
-        <Pressable
-          style={[styles.secondaryButton, { borderColor: colors.textSecondary }]}
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>APARIENCIA</Text>
+        <Card style={styles.themeCard}>
+          <View style={[styles.themeRow, styles.transparentBackground]}>
+            {THEME_OPTIONS.map((option) => {
+              const isSelected = preference === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={[
+                    styles.themeChip,
+                    { borderColor: isSelected ? colors.tint : colors.textSecondary },
+                    isSelected && { backgroundColor: colors.background },
+                  ]}
+                  onPress={() => setPreference(option.value)}
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={18}
+                    color={isSelected ? colors.tint : colors.textSecondary}
+                  />
+                  <Text
+                    style={
+                      isSelected ? { color: colors.tint, fontWeight: '600' } : { fontSize: 13 }
+                    }
+                  >
+                    {option.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Button
+          variant="secondary"
           onPress={() => router.push('/support')}
           disabled={isSubmitting}
+          style={styles.secondaryButton}
         >
-          <Text style={{ color: colors.tint, fontWeight: '600' }}>Ayuda y soporte</Text>
-        </Pressable>
+          <View style={[styles.buttonRow, styles.transparentBackground]}>
+            <Ionicons name="help-circle-outline" size={18} color={colors.tint} />
+            <Text style={{ color: colors.tint, fontWeight: '600' }}>Ayuda y soporte</Text>
+          </View>
+        </Button>
 
-        <Pressable
-          style={[styles.secondaryButton, { borderColor: colors.textSecondary }]}
+        <Button
+          variant="secondary"
           onPress={logout}
           disabled={isSubmitting}
+          style={styles.secondaryButton}
         >
-          <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cerrar sesión</Text>
-        </Pressable>
+          <View style={[styles.buttonRow, styles.transparentBackground]}>
+            <Ionicons name="log-out-outline" size={18} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cerrar sesión</Text>
+          </View>
+        </Button>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -209,15 +292,17 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 32,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
+  transparentBackground: {
+    backgroundColor: 'transparent',
   },
   avatarSection: {
     alignItems: 'center',
-    gap: 8,
-    marginTop: 20,
+    gap: 4,
+    marginTop: 12,
     marginBottom: 24,
+  },
+  avatarWrapper: {
+    marginBottom: 8,
   },
   avatar: {
     width: 96,
@@ -232,6 +317,22 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '700',
   },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
+  },
   changePhotoText: {
     fontSize: 13,
     fontWeight: '600',
@@ -240,10 +341,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 6,
+  },
   fieldLabel: {
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: 6,
   },
   fieldLabelSpaced: {
     marginTop: 16,
@@ -265,20 +371,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
   error: {
     color: '#C0392B',
     fontSize: 13,
-    marginTop: 12,
   },
   success: {
     fontSize: 13,
     fontWeight: '600',
-    marginTop: 12,
   },
-  primaryButton: {
-    borderRadius: 8,
-    paddingVertical: 14,
+  buttonRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  saveButton: {
     marginTop: 20,
   },
   primaryButtonText: {
@@ -286,14 +398,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  secondaryButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 12,
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 24,
+    marginBottom: 8,
   },
-  disabled: {
-    opacity: 0.6,
+  themeCard: {
+    borderRadius: 16,
+    padding: 10,
+  },
+  themeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  themeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  secondaryButton: {
+    marginTop: 12,
   },
 });

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet } from 'react-native';
@@ -35,6 +36,22 @@ const STATUS_BANNER: Record<TripStatus, string> = {
   in_progress: 'Viaje en curso',
   completed: 'Viaje completado',
   cancelled: 'Viaje cancelado',
+};
+
+const STATUS_ICON: Record<TripStatus, keyof typeof Ionicons.glyphMap> = {
+  pending: 'hourglass-outline',
+  accepted: 'car',
+  in_progress: 'navigate',
+  completed: 'checkmark-circle',
+  cancelled: 'close-circle',
+};
+
+const SHEET_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 8,
 };
 
 export default function TripInProgressScreen() {
@@ -128,7 +145,7 @@ export default function TripInProgressScreen() {
     };
   }, [isTrackable, driverPosition?.lat, driverPosition?.lng, routeTarget?.lat, routeTarget?.lng]);
 
-  async function handleCancel(reason: CancellationReason) {
+  async function handleCancel(reason: CancellationReason | undefined) {
     if (!tripId) return;
     setIsCancelling(true);
     try {
@@ -182,11 +199,17 @@ export default function TripInProgressScreen() {
 
   if (!tripId) return null;
 
+  const hasArrived = trip?.status === 'accepted' && Boolean(trip.arrivedAt);
   const bannerText = trip
-    ? trip.status === 'accepted' && trip.arrivedAt
+    ? hasArrived
       ? 'Tu conductor ha llegado'
       : STATUS_BANNER[trip.status]
     : 'Cargando...';
+  const bannerIcon: keyof typeof Ionicons.glyphMap = trip
+    ? hasArrived
+      ? 'location'
+      : STATUS_ICON[trip.status]
+    : 'hourglass-outline';
   const canCall = Boolean(trip?.driverPhone);
   const canCancel = trip?.status === 'pending' || trip?.status === 'accepted';
   const isTerminal = trip?.status === 'completed' || trip?.status === 'cancelled';
@@ -219,13 +242,16 @@ export default function TripInProgressScreen() {
           { backgroundColor: trip?.status === 'cancelled' ? '#6B6560' : colors.success },
         ]}
       >
-        <Text style={styles.bannerText}>
-          {bannerText}
-          {routeDurationText && isTrackable ? ` · llega en ${routeDurationText}` : ''}
-        </Text>
+        <View style={[styles.bannerRow, styles.transparentBackground]}>
+          <Ionicons name={bannerIcon} size={16} color="#fff" />
+          <Text style={styles.bannerText}>
+            {bannerText}
+            {routeDurationText && isTrackable ? ` · llega en ${routeDurationText}` : ''}
+          </Text>
+        </View>
       </View>
 
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.background }, SHEET_SHADOW]}>
         {!isTerminal && (
           <>
             <View style={styles.driverRow}>
@@ -243,44 +269,63 @@ export default function TripInProgressScreen() {
                 )}
               </View>
               {driver && (
-                <Text style={[styles.rating, { color: colors.textSecondary }]}>
-                  ★ {driver.averageRating.toFixed(1)}
-                </Text>
+                <View style={[styles.ratingRow, styles.transparentBackground]}>
+                  <Ionicons name="star" size={13} color={colors.textSecondary} />
+                  <Text style={[styles.rating, { color: colors.textSecondary }]}>
+                    {driver.averageRating.toFixed(1)}
+                  </Text>
+                </View>
               )}
             </View>
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>DESTINO</Text>
+            <View style={[styles.labelRow, styles.transparentBackground]}>
+              <Ionicons name="flag-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.label, { color: colors.textSecondary }]}>DESTINO</Text>
+            </View>
             <Text style={styles.destinationText}>{destinationAddress || '—'}</Text>
 
             {actionError && (
-              <Text style={[styles.errorText, { color: colors.textSecondary }]}>{actionError}</Text>
+              <View style={[styles.noticeRow, styles.transparentBackground]}>
+                <Ionicons name="alert-circle" size={14} color="#C0392B" />
+                <Text style={[styles.errorText, { color: '#C0392B' }]}>{actionError}</Text>
+              </View>
             )}
 
             <View style={styles.actionsRow}>
               {trip?.status === 'in_progress' ? (
                 <Button
-                  title="Finalizar viaje"
                   variant="secondary"
                   onPress={() => setShowEndEarlyModal(true)}
                   style={styles.actionButton}
-                />
+                >
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="flag-outline" size={16} color={colors.text} />
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Finalizar viaje</Text>
+                  </View>
+                </Button>
               ) : (
                 <Button
-                  title="Cancelar"
                   variant="secondary"
                   onPress={() => setShowCancelModal(true)}
                   disabled={!canCancel}
                   style={styles.actionButton}
-                />
+                >
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="close-circle-outline" size={16} color={colors.text} />
+                    <Text style={{ color: colors.text, fontWeight: '600' }}>Cancelar</Text>
+                  </View>
+                </Button>
               )}
               <Pressable
                 style={[
                   styles.actionButton,
+                  styles.callButton,
                   { backgroundColor: canCall ? colors.tint : colors.textSecondary },
                 ]}
                 onPress={handleCall}
                 disabled={!canCall}
               >
+                <Ionicons name="call" size={16} color="#fff" />
                 <Text style={styles.callButtonText}>Llamar</Text>
               </Pressable>
             </View>
@@ -289,22 +334,37 @@ export default function TripInProgressScreen() {
 
         {isTerminal && (
           <>
+            <View style={[styles.terminalIconCircle, { backgroundColor: colors.surfaceHighlight }]}>
+              <Ionicons
+                name={bannerIcon}
+                size={26}
+                color={trip?.status === 'cancelled' ? colors.textSecondary : colors.success}
+              />
+            </View>
             <Text style={styles.title}>{bannerText}</Text>
             <Button
-              title="Volver a inicio"
               onPress={() => router.replace('/(passenger)/(tabs)')}
               style={[styles.actionButton, styles.backToHomeButton]}
-            />
+            >
+              <View style={[styles.buttonContent, styles.transparentBackground]}>
+                <Ionicons name="home-outline" size={17} color="#fff" />
+                <Text style={styles.primaryButtonText}>Volver a inicio</Text>
+              </View>
+            </Button>
           </>
         )}
 
         {driver &&
           (reportSent ? (
-            <Text style={[styles.reportSentText, { color: colors.textSecondary }]}>
-              Reporte enviado. Administración lo revisará.
-            </Text>
+            <View style={[styles.noticeRow, styles.reportSentRow, styles.transparentBackground]}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={[styles.reportSentText, { color: colors.textSecondary }]}>
+                Reporte enviado. Administración lo revisará.
+              </Text>
+            </View>
           ) : (
             <Pressable style={styles.reportButton} onPress={() => setShowReportModal(true)}>
+              <Ionicons name="alert-circle-outline" size={13} color={colors.textSecondary} />
               <Text style={[styles.reportButtonText, { color: colors.textSecondary }]}>
                 Reportar un problema
               </Text>
@@ -367,6 +427,11 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: 'center',
   },
+  bannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   bannerText: {
     color: '#fff',
     fontWeight: '700',
@@ -410,9 +475,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
   rating: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   label: {
     fontSize: 11,
@@ -423,9 +501,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   errorText: {
     fontSize: 12,
-    marginBottom: 12,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -438,8 +521,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   backToHomeButton: {
     marginTop: 16,
+  },
+  callButton: {
+    flexDirection: 'row',
+    gap: 6,
   },
   callButtonText: {
     color: '#fff',
@@ -450,18 +542,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  reportButton: {
-    marginTop: 12,
+  terminalIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 12,
     paddingVertical: 6,
   },
   reportButtonText: {
     fontSize: 12,
     fontWeight: '600',
   },
-  reportSentText: {
+  reportSentRow: {
+    justifyContent: 'center',
     marginTop: 12,
+    marginBottom: 0,
+  },
+  reportSentText: {
     fontSize: 12,
-    textAlign: 'center',
   },
 });

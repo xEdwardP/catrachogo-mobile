@@ -6,6 +6,7 @@ import { TripHistoryList } from '@/components/TripHistoryList';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { createIncidentReport, type IncidentReportCategory } from '@/lib/api/incidentReports';
 import type { Trip } from '@/lib/api/trips';
+import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 function isTrackable(trip: Trip) {
   return trip.status === 'pending' || trip.status === 'accepted' || trip.status === 'in_progress';
@@ -16,6 +17,7 @@ function canReportTrip(trip: Trip) {
 }
 
 export default function PassengerActivityScreen() {
+  const openDrawer = useOpenDrawer();
   const [reportingTripId, setReportingTripId] = useState<string | null>(null);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export default function PassengerActivityScreen() {
         onPressTrip={handlePressTrip}
         canReportTrip={canReportTrip}
         onReportTrip={(trip) => setReportingTripId(trip.id)}
+        onMenuPress={openDrawer}
       />
 
       <ReportIncidentModal

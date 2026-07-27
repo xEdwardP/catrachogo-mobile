@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 
@@ -73,7 +74,7 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
                   </Text>
                 </View>
                 <Pressable onPress={handleDismiss} hitSlop={8}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 18 }}>✕</Text>
+                  <Ionicons name="close" size={20} color={colors.textSecondary} />
                 </Pressable>
               </View>
 

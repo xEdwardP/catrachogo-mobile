@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -137,7 +138,7 @@ export default function RequestTripScreen() {
         style={[styles.backButton, { backgroundColor: colors.background }]}
         onPress={() => router.back()}
       >
-        <Text style={styles.backButtonText}>←</Text>
+        <Ionicons name="arrow-back" size={20} color={colors.text} />
       </Pressable>
 
       <BottomSheet
@@ -149,6 +150,7 @@ export default function RequestTripScreen() {
           <Text style={[styles.label, { color: colors.textSecondary }]}>ORIGEN</Text>
           <PlaceAutocompleteInput
             placeholder="Punto de partida"
+            icon="navigate-outline"
             value={originAddress}
             onChangeValue={setOriginAddress}
             locationBias={mapCenter}
@@ -161,6 +163,7 @@ export default function RequestTripScreen() {
           <Text style={[styles.label, { color: colors.textSecondary }]}>DESTINO</Text>
           <PlaceAutocompleteInput
             placeholder="¿A dónde vas?"
+            icon="flag-outline"
             value={destinationAddress}
             onChangeValue={setDestinationAddress}
             locationBias={mapCenter}
@@ -171,7 +174,10 @@ export default function RequestTripScreen() {
           />
 
           <Card style={styles.fareRow}>
-            <Text style={{ color: colors.textSecondary }}>Tarifa estimada</Text>
+            <View style={[styles.fareLabelRow, styles.transparentBackground]}>
+              <Ionicons name="cash-outline" size={16} color={colors.textSecondary} />
+              <Text style={{ color: colors.textSecondary }}>Tarifa estimada</Text>
+            </View>
             {!origin ? (
               fallbackLocation.error ? (
                 <Text style={[styles.fareErrorText, { color: colors.textSecondary }]}>
@@ -194,12 +200,16 @@ export default function RequestTripScreen() {
           </Card>
 
           <Button
-            title="Solicitar viaje"
             onPress={handleConfirm}
             loading={isRequesting}
             disabled={!origin || !fare}
             style={styles.button}
-          />
+          >
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="car-outline" size={18} color="#fff" />
+              <Text style={styles.buttonText}>Solicitar viaje</Text>
+            </View>
+          </Button>
         </BottomSheetView>
       </BottomSheet>
     </View>
@@ -224,13 +234,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  backButtonText: {
-    fontSize: 18,
-  },
   sheetContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
     gap: 8,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
   },
   label: {
     fontSize: 11,
@@ -246,8 +256,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 8,
   },
+  fareLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   fareText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   fareErrorText: {
@@ -255,5 +270,15 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 12,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

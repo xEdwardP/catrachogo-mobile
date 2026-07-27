@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export function useColorScheme(): 'light' | 'dark' {
+export function useSystemColorScheme(): 'light' | 'dark' {
   const [scheme, setScheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {

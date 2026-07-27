@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { Text, View } from '@/components/Themed';
@@ -61,7 +61,9 @@ export function TopupModal({ visible, onDismiss, onSuccess }: Props) {
       }
 
       const confirmResult = await confirmTopup(orderId);
-      onSuccess(confirmResult.balance);
+      Alert.alert('Recarga exitosa', `Se agregaron L. ${parsedAmount.toFixed(2)} a tu wallet.`, [
+        { text: 'OK', onPress: () => onSuccess(confirmResult.balance) },
+      ]);
     } catch {
       setError('No se pudo confirmar el pago con PayPal. Si el cargo se realizó, contáctanos.');
     } finally {
