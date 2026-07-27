@@ -8,6 +8,7 @@ import { RatingModal } from '@/components/RatingModal';
 import { ReportIncidentModal } from '@/components/ReportIncidentModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap, type TripMapMarker } from '@/components/TripMap';
+import { Button } from '@/components/ui/Button';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getDriverPublicProfile } from '@/lib/api/drivers';
@@ -257,28 +258,20 @@ export default function TripInProgressScreen() {
 
             <View style={styles.actionsRow}>
               {trip?.status === 'in_progress' ? (
-                <Pressable
-                  style={[
-                    styles.actionButton,
-                    styles.secondaryButton,
-                    { borderColor: colors.textSecondary },
-                  ]}
+                <Button
+                  title="Finalizar viaje"
+                  variant="secondary"
                   onPress={() => setShowEndEarlyModal(true)}
-                >
-                  <Text>Finalizar viaje</Text>
-                </Pressable>
+                  style={styles.actionButton}
+                />
               ) : (
-                <Pressable
-                  style={[
-                    styles.actionButton,
-                    styles.secondaryButton,
-                    { borderColor: colors.textSecondary },
-                  ]}
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
                   onPress={() => setShowCancelModal(true)}
                   disabled={!canCancel}
-                >
-                  <Text style={!canCancel && { opacity: 0.5 }}>Cancelar</Text>
-                </Pressable>
+                  style={styles.actionButton}
+                />
               )}
               <Pressable
                 style={[
@@ -297,12 +290,11 @@ export default function TripInProgressScreen() {
         {isTerminal && (
           <>
             <Text style={styles.title}>{bannerText}</Text>
-            <Pressable
-              style={[styles.actionButton, { backgroundColor: colors.tint, marginTop: 16 }]}
+            <Button
+              title="Volver a inicio"
               onPress={() => router.replace('/(passenger)/(tabs)')}
-            >
-              <Text style={styles.callButtonText}>Volver a inicio</Text>
-            </Pressable>
+              style={[styles.actionButton, styles.backToHomeButton]}
+            />
           </>
         )}
 
@@ -446,8 +438,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButton: {
-    borderWidth: 1,
+  backToHomeButton: {
+    marginTop: 16,
   },
   callButtonText: {
     color: '#fff',

@@ -1,24 +1,20 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { TextField } from '@/components/ui/TextField';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +33,19 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleGoogleSuccess(idToken: string) {
+    setError(null);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+    }
+  }
+
+  function handleGoogleError() {
+    setError('No se pudo iniciar sesión con Google. Intenta de nuevo.');
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -48,25 +57,21 @@ export default function LoginScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
           Inicia sesión para continuar
         </Text>
 
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField
           placeholder="Correo electrónico"
-          placeholderTextColor={colors.textSecondary}
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
         />
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField
           placeholder="Contraseña"
-          placeholderTextColor={colors.textSecondary}
-          secureTextEntry
+          isPassword
           autoComplete="password"
           value={password}
           onChangeText={setPassword}
@@ -74,21 +79,21 @@ export default function LoginScreen() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <Pressable
-          style={[
-            styles.button,
-            { backgroundColor: colors.tint },
-            isSubmitting && styles.buttonDisabled,
-          ]}
+        <Button
+          title="Iniciar sesión"
           onPress={handleSubmit}
-          disabled={isSubmitting || !email || !password}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Iniciar sesión</Text>
-          )}
-        </Pressable>
+          loading={isSubmitting}
+          disabled={!email || !password}
+          style={styles.button}
+        />
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.textSecondary }]} />
+          <Text style={[styles.dividerText, { color: colors.textSecondary }]}>o</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.textSecondary }]} />
+        </View>
+
+        <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
 
         <Link href="/(auth)/register" style={styles.link}>
           <Text style={{ color: colors.tint }}>¿No tienes cuenta? Regístrate</Text>
@@ -108,38 +113,33 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: '100%',
-    height: 96,
+    height: 140,
     alignSelf: 'center',
   },
   subtitle: {
-    fontSize: 14,
     textAlign: 'center',
     marginBottom: 12,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    opacity: 0.3,
+  },
+  dividerText: {
+    fontSize: 12,
   },
   error: {
     color: '#C0392B',
     fontSize: 13,
   },
   button: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
   link: {
     alignSelf: 'center',

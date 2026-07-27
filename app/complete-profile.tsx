@@ -1,16 +1,12 @@
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { PHONE_PATTERN, sanitizePhoneInput } from '@/lib/phone';
 
@@ -43,15 +39,13 @@ export default function CompleteProfileScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.container}>
-        <Text style={styles.title}>Un último paso</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        <Text style={[Typography.h1, styles.title]}>Un último paso</Text>
+        <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
           Necesitamos tu número de teléfono para poder conectarte con un conductor o pasajero.
         </Text>
 
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField
           placeholder="Teléfono"
-          placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
           value={phone}
           onChangeText={(value) => setPhone(sanitizePhoneInput(value))}
@@ -59,21 +53,13 @@ export default function CompleteProfileScreen() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <Pressable
-          style={[
-            styles.button,
-            { backgroundColor: colors.tint },
-            isSubmitting && styles.buttonDisabled,
-          ]}
+        <Button
+          title="Continuar"
           onPress={handleSubmit}
-          disabled={isSubmitting || !canSubmit}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Continuar</Text>
-          )}
-        </Pressable>
+          loading={isSubmitting}
+          disabled={!canSubmit}
+          style={styles.button}
+        />
 
         <Pressable style={styles.link} onPress={logout}>
           <Text style={{ color: colors.textSecondary }}>Cerrar sesión</Text>
@@ -92,39 +78,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
     textAlign: 'center',
     marginBottom: 12,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
   },
   error: {
     color: '#C0392B',
     fontSize: 13,
   },
   button: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
   link: {
     alignSelf: 'center',

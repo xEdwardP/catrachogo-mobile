@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { ModalCard } from '@/components/ui/ModalCard';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { SAVED_ADDRESS_LABEL_OPTIONS, SAVED_ADDRESS_LABELS } from '@/constants/SavedAddressLabels';
+import { Typography } from '@/constants/Typography';
 import type { CreateSavedAddressPayload, SavedAddressLabel } from '@/lib/api/savedAddresses';
 
 const CUSTOM_LABEL_MAX_LENGTH = 40;
@@ -75,116 +79,90 @@ export function SaveFavoriteAddressModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDismiss}>
-      <View style={styles.overlay} lightColor="rgba(0,0,0,0.4)" darkColor="rgba(0,0,0,0.6)">
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
-          <Text style={styles.title}>Guardar dirección favorita</Text>
+    <ModalCard visible={visible} onDismiss={handleDismiss}>
+      <Text style={[Typography.h3, styles.title]}>Guardar dirección favorita</Text>
 
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>DIRECCIÓN</Text>
-          <PlaceAutocompleteInput
-            placeholder="Busca una dirección"
-            value={addressText}
-            onChangeValue={handleChangeAddressText}
-            locationBias={locationBias}
-            onSelect={handleSelectPlace}
-          />
+      <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+        DIRECCIÓN
+      </Text>
+      <PlaceAutocompleteInput
+        placeholder="Busca una dirección"
+        value={addressText}
+        onChangeValue={handleChangeAddressText}
+        locationBias={locationBias}
+        onSelect={handleSelectPlace}
+      />
 
-          <Text
-            style={[styles.fieldLabel, styles.fieldLabelSpaced, { color: colors.textSecondary }]}
-          >
-            ETIQUETA
-          </Text>
-          <View style={styles.labelRow}>
-            {SAVED_ADDRESS_LABEL_OPTIONS.map((option) => {
-              const isSelected = label === option;
-              return (
-                <Pressable
-                  key={option}
-                  style={[
-                    styles.labelChip,
-                    { borderColor: isSelected ? colors.tint : colors.textSecondary },
-                    isSelected && { backgroundColor: colors.surfaceHighlight },
-                  ]}
-                  onPress={() => setLabel(option)}
-                  disabled={isSubmitting}
-                >
-                  <Text style={isSelected ? { color: colors.tint, fontWeight: '600' } : undefined}>
-                    {SAVED_ADDRESS_LABELS[option]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {label === 'other' && (
-            <TextInput
-              style={[
-                styles.input,
-                styles.customLabelInput,
-                { borderColor: colors.textSecondary, color: colors.text },
-              ]}
-              placeholder="Nombre (ej. Gimnasio)"
-              placeholderTextColor={colors.textSecondary}
-              value={customLabel}
-              onChangeText={setCustomLabel}
-              maxLength={CUSTOM_LABEL_MAX_LENGTH}
-              editable={!isSubmitting}
-            />
-          )}
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <View style={styles.buttonRow}>
+      <Text
+        style={[
+          Typography.label,
+          styles.fieldLabel,
+          styles.fieldLabelSpaced,
+          { color: colors.textSecondary },
+        ]}
+      >
+        ETIQUETA
+      </Text>
+      <View style={styles.labelRow}>
+        {SAVED_ADDRESS_LABEL_OPTIONS.map((option) => {
+          const isSelected = label === option;
+          return (
             <Pressable
-              style={[styles.button, styles.secondaryButton, { borderColor: colors.textSecondary }]}
-              onPress={handleDismiss}
+              key={option}
+              style={[
+                styles.labelChip,
+                { borderColor: isSelected ? colors.tint : colors.textSecondary },
+                isSelected && { backgroundColor: colors.surfaceHighlight },
+              ]}
+              onPress={() => setLabel(option)}
               disabled={isSubmitting}
             >
-              <Text>Cancelar</Text>
+              <Text style={isSelected ? { color: colors.tint, fontWeight: '600' } : undefined}>
+                {SAVED_ADDRESS_LABELS[option]}
+              </Text>
             </Pressable>
-            <Pressable
-              style={[
-                styles.button,
-                { backgroundColor: colors.tint },
-                (!canSave || isSubmitting) && styles.disabled,
-              ]}
-              onPress={handleSave}
-              disabled={!canSave || isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Guardar</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
+          );
+        })}
       </View>
-    </Modal>
+
+      {label === 'other' && (
+        <TextField
+          style={styles.customLabelInput}
+          placeholder="Nombre (ej. Gimnasio)"
+          value={customLabel}
+          onChangeText={setCustomLabel}
+          maxLength={CUSTOM_LABEL_MAX_LENGTH}
+          editable={!isSubmitting}
+        />
+      )}
+
+      {error && <Text style={styles.error}>{error}</Text>}
+
+      <View style={styles.buttonRow}>
+        <Button
+          title="Cancelar"
+          variant="secondary"
+          onPress={handleDismiss}
+          disabled={isSubmitting}
+          style={styles.button}
+        />
+        <Button
+          title="Guardar"
+          onPress={handleSave}
+          loading={isSubmitting}
+          disabled={!canSave}
+          style={styles.button}
+        />
+      </View>
+    </ModalCard>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 16,
-    padding: 20,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
     marginBottom: 16,
   },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
     marginBottom: 6,
   },
   fieldLabelSpaced: {
@@ -201,13 +179,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
   customLabelInput: {
     marginTop: 10,
   },
@@ -223,19 +194,6 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

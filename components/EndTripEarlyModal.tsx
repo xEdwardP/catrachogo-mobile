@@ -1,8 +1,11 @@
-import { ActivityIndicator, Modal, Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { ModalCard } from '@/components/ui/ModalCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 
 type Props = {
   visible: boolean;
@@ -16,67 +19,38 @@ export function EndTripEarlyModal({ visible, isSubmitting, onConfirm, onDismiss 
   const colors = Colors[colorScheme];
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={styles.overlay} lightColor="rgba(0,0,0,0.4)" darkColor="rgba(0,0,0,0.6)">
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
-          <Text style={styles.title}>¿Finalizar el viaje aquí?</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>
-            Se te cobrará una tarifa proporcional a la distancia recorrida hasta este punto, no la
-            tarifa completa del viaje original.
-          </Text>
+    <ModalCard visible={visible} onDismiss={onDismiss}>
+      <Text style={[Typography.h3, styles.title]}>¿Finalizar el viaje aquí?</Text>
+      <Text style={[Typography.subtitle, styles.description, { color: colors.textSecondary }]}>
+        Se te cobrará una tarifa proporcional a la distancia recorrida hasta este punto, no la
+        tarifa completa del viaje original.
+      </Text>
 
-          <View style={styles.buttonRow}>
-            <Pressable
-              style={[styles.button, styles.secondaryButton, { borderColor: colors.textSecondary }]}
-              onPress={onDismiss}
-              disabled={isSubmitting}
-            >
-              <Text>Continuar viaje</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.button,
-                { backgroundColor: colors.tint },
-                isSubmitting && styles.disabled,
-              ]}
-              onPress={onConfirm}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Sí, finalizar</Text>
-              )}
-            </Pressable>
-          </View>
-        </View>
+      <View style={styles.buttonRow}>
+        <Button
+          title="Continuar viaje"
+          variant="secondary"
+          onPress={onDismiss}
+          disabled={isSubmitting}
+          style={styles.button}
+        />
+        <Button
+          title="Sí, finalizar"
+          onPress={onConfirm}
+          loading={isSubmitting}
+          style={styles.button}
+        />
       </View>
-    </Modal>
+    </ModalCard>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 16,
-    padding: 20,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
     marginBottom: 6,
   },
   description: {
-    fontSize: 13,
     marginBottom: 20,
-    lineHeight: 18,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -84,19 +58,6 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

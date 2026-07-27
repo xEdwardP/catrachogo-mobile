@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripStatusLabels';
@@ -98,7 +99,7 @@ export function TripHistoryList({
             const badgeColors = TRIP_STATUS_BADGE_COLORS[item.status];
             const trackable = isTrackable(item);
             return (
-              <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
+              <Card style={styles.card}>
                 <Pressable
                   style={styles.cardMain}
                   onPress={() => onPressTrip(item)}
@@ -132,7 +133,7 @@ export function TripHistoryList({
                     </Text>
                   </Pressable>
                 )}
-              </View>
+              </Card>
             );
           }}
         />
@@ -172,8 +173,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    borderRadius: 12,
-    padding: 14,
     gap: 6,
   },
   cardMain: {

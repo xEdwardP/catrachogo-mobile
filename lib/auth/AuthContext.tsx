@@ -52,6 +52,7 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   completePhone: (phone: string) => Promise<void>;
   updateName: (name: string) => Promise<void>;
   updateProfilePhoto: (profilePhotoUrl: string) => Promise<void>;
@@ -133,6 +134,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function loginWithGoogle(idToken: string) {
+    try {
+      const { data } = await apiClient.post<LoginResponse>('/auth/google', { idToken });
+      const stored: StoredSession = {
+        token: data.token,
+        id: data.user.id,
+        name: data.user.name,
+        role: data.user.role,
+      };
+      await saveSession(stored);
+      const fetchedProfile = await fetchProfile();
+      setSession(stored);
+      setProfile(fetchedProfile);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error));
+    }
+  }
+
   async function completePhone(phone: string) {
     try {
       const { data } = await apiClient.patch<{ phone: string }>('/auth/phone', { phone });
@@ -182,6 +201,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         isLoading,
         login,
         register,
+        loginWithGoogle,
         completePhone,
         updateName,
         updateProfilePhoto,
