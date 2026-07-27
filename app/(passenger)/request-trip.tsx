@@ -6,6 +6,8 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
 import { PlaceAutocompleteInput } from '@/components/PlaceAutocompleteInput';
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getApiErrorMessage } from '@/lib/api/errors';
@@ -168,7 +170,7 @@ export default function RequestTripScreen() {
             }}
           />
 
-          <View style={[styles.fareRow, { backgroundColor: colors.surfaceHighlight }]}>
+          <Card style={styles.fareRow}>
             <Text style={{ color: colors.textSecondary }}>Tarifa estimada</Text>
             {!origin ? (
               fallbackLocation.error ? (
@@ -189,23 +191,15 @@ export default function RequestTripScreen() {
                 {fareError}
               </Text>
             ) : null}
-          </View>
+          </Card>
 
-          <Pressable
-            style={[
-              styles.button,
-              { backgroundColor: colors.tint },
-              (!origin || !fare || isRequesting) && styles.buttonDisabled,
-            ]}
+          <Button
+            title="Solicitar viaje"
             onPress={handleConfirm}
-            disabled={!origin || !fare || isRequesting}
-          >
-            {isRequesting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Solicitar viaje</Text>
-            )}
-          </Pressable>
+            loading={isRequesting}
+            disabled={!origin || !fare}
+            style={styles.button}
+          />
         </BottomSheetView>
       </BottomSheet>
     </View>
@@ -260,17 +254,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   button: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 12,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
 });

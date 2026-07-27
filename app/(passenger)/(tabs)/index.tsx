@@ -7,6 +7,7 @@ import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceA
 import { SaveFavoriteAddressModal } from '@/components/SaveFavoriteAddressModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
+import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { savedAddressDisplayLabel } from '@/constants/SavedAddressLabels';
@@ -168,10 +169,7 @@ export default function PassengerHomeScreen() {
         </Text>
       ) : (
         favorites.map((favorite) => (
-          <View
-            key={favorite.id}
-            style={[styles.row, { backgroundColor: colors.surfaceHighlight }]}
-          >
+          <Card key={favorite.id} style={styles.row}>
             <Pressable
               style={styles.rowMain}
               onPress={() =>
@@ -194,7 +192,7 @@ export default function PassengerHomeScreen() {
             >
               <Text style={{ color: colors.textSecondary }}>✕</Text>
             </Pressable>
-          </View>
+          </Card>
         ))
       )}
 

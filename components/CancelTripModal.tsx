@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { ModalCard } from '@/components/ui/ModalCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import {
   CANCELLATION_FEE_AMOUNT,
@@ -9,6 +11,7 @@ import {
   PASSENGER_CANCELLATION_REASONS,
 } from '@/constants/CancellationReasons';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import type { CancellationReason } from '@/lib/api/trips';
 
 type Props = {
@@ -31,92 +34,63 @@ export function CancelTripModal({
   const [reason, setReason] = useState<CancellationReason>(PASSENGER_CANCELLATION_REASONS[0]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
-      <View style={styles.overlay} lightColor="rgba(0,0,0,0.4)" darkColor="rgba(0,0,0,0.6)">
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
-          <Text style={styles.title}>¿Cancelar este viaje?</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>
-            {chargesFee
-              ? `El conductor ya va en camino a recogerte. Si cancelas ahora, se aplicará un cargo de L. ${CANCELLATION_FEE_AMOUNT.toFixed(2)} a tu wallet como compensación para el conductor.`
-              : 'Todavía no se te ha asignado un conductor, así que esta cancelación es gratuita.'}
-          </Text>
+    <ModalCard visible={visible} onDismiss={onDismiss}>
+      <Text style={[Typography.h3, styles.title]}>¿Cancelar este viaje?</Text>
+      <Text style={[Typography.subtitle, styles.description, { color: colors.textSecondary }]}>
+        {chargesFee
+          ? `El conductor ya va en camino a recogerte. Si cancelas ahora, se aplicará un cargo de L. ${CANCELLATION_FEE_AMOUNT.toFixed(2)} a tu wallet como compensación para el conductor.`
+          : 'Todavía no se te ha asignado un conductor, así que esta cancelación es gratuita.'}
+      </Text>
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>¿POR QUÉ CANCELAS?</Text>
-          <View style={styles.reasonList}>
-            {PASSENGER_CANCELLATION_REASONS.map((value) => {
-              const selected = value === reason;
-              return (
-                <Pressable
-                  key={value}
-                  style={[
-                    styles.reasonRow,
-                    { borderColor: selected ? colors.tint : colors.textSecondary },
-                    selected && { backgroundColor: colors.surfaceHighlight },
-                  ]}
-                  onPress={() => setReason(value)}
-                >
-                  <Text>{CANCELLATION_REASON_LABELS[value]}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.buttonRow}>
+      <Text style={[Typography.label, styles.label, { color: colors.textSecondary }]}>
+        ¿POR QUÉ CANCELAS?
+      </Text>
+      <View style={styles.reasonList}>
+        {PASSENGER_CANCELLATION_REASONS.map((value) => {
+          const selected = value === reason;
+          return (
             <Pressable
-              style={[styles.button, styles.secondaryButton, { borderColor: colors.textSecondary }]}
-              onPress={onDismiss}
-              disabled={isSubmitting}
-            >
-              <Text>Mantener viaje</Text>
-            </Pressable>
-            <Pressable
+              key={value}
               style={[
-                styles.button,
-                { backgroundColor: colors.tint },
-                isSubmitting && styles.disabled,
+                styles.reasonRow,
+                { borderColor: selected ? colors.tint : colors.textSecondary },
+                selected && { backgroundColor: colors.surfaceHighlight },
               ]}
-              onPress={() => onConfirm(reason)}
-              disabled={isSubmitting}
+              onPress={() => setReason(value)}
             >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Sí, cancelar</Text>
-              )}
+              <Text>{CANCELLATION_REASON_LABELS[value]}</Text>
             </Pressable>
-          </View>
-        </View>
+          );
+        })}
       </View>
-    </Modal>
+
+      <View style={styles.buttonRow}>
+        <Button
+          title="Mantener viaje"
+          variant="secondary"
+          onPress={onDismiss}
+          disabled={isSubmitting}
+          style={styles.button}
+        />
+        <Button
+          title="Sí, cancelar"
+          onPress={() => onConfirm(reason)}
+          loading={isSubmitting}
+          style={styles.button}
+        />
+      </View>
+    </ModalCard>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 16,
-    padding: 20,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
     marginBottom: 6,
   },
   description: {
-    fontSize: 13,
     marginBottom: 16,
-    lineHeight: 18,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '700',
     marginBottom: 8,
   },
   reasonList: {
@@ -135,19 +109,6 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

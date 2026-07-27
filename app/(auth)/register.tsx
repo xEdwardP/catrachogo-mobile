@@ -1,19 +1,21 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
 } from 'react-native';
 
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 const ROLES = [
@@ -24,7 +26,7 @@ const ROLES = [
 export default function RegisterScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,6 +56,19 @@ export default function RegisterScreen() {
     }
   }
 
+  async function handleGoogleSuccess(idToken: string) {
+    setError(null);
+    try {
+      await loginWithGoogle(idToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
+    }
+  }
+
+  function handleGoogleError() {
+    setError('No se pudo iniciar sesión con Google. Intenta de nuevo.');
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -65,7 +80,7 @@ export default function RegisterScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.title}>Crear cuenta</Text>
+        <Text style={[Typography.h1, styles.title]}>Crear cuenta</Text>
 
         <View style={styles.roleRow}>
           {ROLES.map((r) => {
@@ -88,57 +103,49 @@ export default function RegisterScreen() {
           })}
         </View>
 
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
-          placeholder="Nombre completo"
-          placeholderTextColor={colors.textSecondary}
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField placeholder="Nombre completo" value={name} onChangeText={setName} />
+        <TextField
           placeholder="Correo electrónico"
-          placeholderTextColor={colors.textSecondary}
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
         />
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField
           placeholder="Teléfono"
-          placeholderTextColor={colors.textSecondary}
           keyboardType="phone-pad"
           value={phone}
           onChangeText={setPhone}
         />
-        <TextInput
-          style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
+        <TextField
           placeholder="Contraseña (mínimo 8 caracteres)"
-          placeholderTextColor={colors.textSecondary}
-          secureTextEntry
+          isPassword
           value={password}
           onChangeText={setPassword}
         />
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <Pressable
-          style={[
-            styles.button,
-            { backgroundColor: colors.tint },
-            isSubmitting && styles.buttonDisabled,
-          ]}
+        <Button
+          title="Crear cuenta"
           onPress={handleSubmit}
-          disabled={isSubmitting || !canSubmit}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Crear cuenta</Text>
-          )}
-        </Pressable>
+          loading={isSubmitting}
+          disabled={!canSubmit}
+          style={styles.button}
+        />
+
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.textSecondary }]} />
+          <Text style={[styles.dividerText, { color: colors.textSecondary }]}>o</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.textSecondary }]} />
+        </View>
+
+        <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+        <Text style={[styles.googleHint, { color: colors.textSecondary }]}>
+          Con Google te registras como pasajero. Para registrarte como conductor, usa el formulario
+          de arriba.
+        </Text>
 
         <Link href="/(auth)/login" style={styles.link}>
           <Text style={{ color: colors.tint }}>¿Ya tienes cuenta? Inicia sesión</Text>
@@ -162,8 +169,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -183,30 +188,31 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
   error: {
     color: '#C0392B',
     fontSize: 13,
   },
   button: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    opacity: 0.3,
+  },
+  dividerText: {
+    fontSize: 12,
+  },
+  googleHint: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 6,
   },
   link: {
     alignSelf: 'center',

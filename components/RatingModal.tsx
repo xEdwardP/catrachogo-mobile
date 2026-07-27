@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { ModalCard } from '@/components/ui/ModalCard';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import { createRating } from '@/lib/api/ratings';
 
 type Props = {
@@ -34,84 +38,53 @@ export function RatingModal({ visible, tripId, ratedId, ratedName, onDone }: Pro
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
-      <View style={styles.overlay} lightColor="rgba(0,0,0,0.4)" darkColor="rgba(0,0,0,0.6)">
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
-          <Text style={styles.title}>¿Cómo estuvo tu viaje?</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Califica a {ratedName ?? 'tu conductor'}
-          </Text>
+    <ModalCard visible={visible} onDismiss={onDone}>
+      <Text style={[Typography.h3, styles.title]}>¿Cómo estuvo tu viaje?</Text>
+      <Text style={[Typography.subtitle, styles.subtitle, { color: colors.textSecondary }]}>
+        Califica a {ratedName ?? 'tu conductor'}
+      </Text>
 
-          <View style={styles.starsRow}>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <Pressable key={value} onPress={() => setScore(value)} hitSlop={6}>
-                <Text
-                  style={[
-                    styles.star,
-                    { color: value <= score ? colors.tint : colors.textSecondary },
-                  ]}
-                >
-                  ★
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <TextInput
-            style={[styles.commentInput, { borderColor: colors.textSecondary, color: colors.text }]}
-            placeholder="Comentario (opcional)"
-            placeholderTextColor={colors.textSecondary}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            numberOfLines={3}
-          />
-
-          <Pressable
-            style={[
-              styles.submitButton,
-              { backgroundColor: colors.tint },
-              (score === 0 || isSubmitting) && styles.disabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={score === 0 || isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Enviar calificación</Text>
-            )}
+      <View style={styles.starsRow}>
+        {[1, 2, 3, 4, 5].map((value) => (
+          <Pressable key={value} onPress={() => setScore(value)} hitSlop={6}>
+            <Text
+              style={[styles.star, { color: value <= score ? colors.tint : colors.textSecondary }]}
+            >
+              ★
+            </Text>
           </Pressable>
-
-          <Pressable style={styles.skipButton} onPress={onDone} disabled={isSubmitting}>
-            <Text style={{ color: colors.textSecondary }}>Omitir</Text>
-          </Pressable>
-        </View>
+        ))}
       </View>
-    </Modal>
+
+      <TextField
+        style={styles.commentInput}
+        placeholder="Comentario (opcional)"
+        value={comment}
+        onChangeText={setComment}
+        multiline
+        numberOfLines={3}
+      />
+
+      <Button
+        title="Enviar calificación"
+        onPress={handleSubmit}
+        loading={isSubmitting}
+        disabled={score === 0}
+        style={styles.submitButton}
+      />
+
+      <Pressable style={styles.skipButton} onPress={onDone} disabled={isSubmitting}>
+        <Text style={{ color: colors.textSecondary }}>Omitir</Text>
+      </Pressable>
+    </ModalCard>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    borderRadius: 16,
-    padding: 20,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13,
     marginBottom: 16,
   },
   starsRow: {
@@ -124,26 +97,12 @@ const styles = StyleSheet.create({
     fontSize: 34,
   },
   commentInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
     minHeight: 72,
     textAlignVertical: 'top',
     marginBottom: 16,
   },
   submitButton: {
-    borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
   skipButton: {
     marginTop: 10,
