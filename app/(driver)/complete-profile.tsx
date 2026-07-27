@@ -13,13 +13,9 @@ import { CloudinaryImagePicker } from '@/components/CloudinaryImagePicker';
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { VEHICLE_TYPE_LABELS, VEHICLE_TYPE_OPTIONS } from '@/constants/VehicleTypeLabels';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { completeDriverProfile, type VehicleType } from '@/lib/api/drivers';
-
-const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
-  { value: 'car', label: 'Carro' },
-  { value: 'motorcycle', label: 'Motocicleta' },
-];
 
 export default function DriverCompleteProfileScreen() {
   const colorScheme = useColorScheme();
@@ -89,20 +85,20 @@ export default function DriverCompleteProfileScreen() {
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DATOS DEL VEHÍCULO</Text>
 
       <View style={styles.vehicleTypeRow}>
-        {VEHICLE_TYPES.map((option) => {
-          const selected = option.value === vehicleType;
+        {VEHICLE_TYPE_OPTIONS.map((option) => {
+          const selected = option === vehicleType;
           return (
             <Pressable
-              key={option.value}
+              key={option}
               style={[
                 styles.vehicleTypeChip,
                 { borderColor: colors.tint },
                 selected && { backgroundColor: colors.tint },
               ]}
-              onPress={() => setVehicleType(option.value)}
+              onPress={() => setVehicleType(option)}
             >
               <Text style={selected ? styles.vehicleTypeTextSelected : { color: colors.tint }}>
-                {option.label}
+                {VEHICLE_TYPE_LABELS[option]}
               </Text>
             </Pressable>
           );

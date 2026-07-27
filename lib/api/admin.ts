@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import type { VehicleType } from '@/lib/api/drivers';
 import type { TripStatus } from '@/lib/api/trips';
 
 type AdminDashboardStatsResponse = {
@@ -64,4 +65,49 @@ export async function getAdminStats(): Promise<AdminStats> {
       count: point.tripsCompleted,
     })),
   };
+}
+
+export type VerificationStatus = 'pending' | 'approved' | 'rejected';
+
+export type AdminDriverRow = {
+  id: string;
+  userId: string;
+  vehicleType: VehicleType;
+  licenseNumber: string;
+  verificationStatus: VerificationStatus;
+  averageRating: number | null;
+  available: boolean;
+  approvedAt: string | null;
+  idFrontUrl: string;
+  idBackUrl: string;
+  vehicleRegistrationUrl: string;
+  selfieWithIdUrl: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    profilePhotoUrl: string | null;
+    createdAt: string;
+  };
+  vehicles: {
+    id: string;
+    brand: string;
+    model: string;
+    year: number;
+    color: string;
+    plate: string;
+  }[];
+};
+
+export async function getAdminDrivers(status: VerificationStatus): Promise<AdminDriverRow[]> {
+  const { data } = await apiClient.get<AdminDriverRow[]>('/admin/drivers', { params: { status } });
+  return data;
+}
+
+export async function updateDriverVerification(
+  driverId: string,
+  verificationStatus: 'approved' | 'rejected',
+): Promise<void> {
+  await apiClient.patch(`/admin/drivers/${driverId}/verification`, { verificationStatus });
 }
