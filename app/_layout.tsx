@@ -76,7 +76,7 @@ function RootLayoutNav() {
         </Stack.Protected>
 
         <Stack.Protected guard={hasCompleteProfile && session?.role === 'admin'}>
-          <Stack.Screen name="(admin)/(tabs)" />
+          <Stack.Screen name="(admin)" />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>
