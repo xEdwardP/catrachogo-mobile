@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
 
-import { PassengerDrawerContent } from '@/components/PassengerDrawerContent';
+import { AppDrawerContent } from '@/components/AppDrawerContent';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -11,7 +11,7 @@ export default function PassengerTabsLayout() {
 
   return (
     <Drawer
-      drawerContent={(props) => <PassengerDrawerContent {...props} />}
+      drawerContent={(props) => <AppDrawerContent {...props} />}
       screenOptions={{
         headerShown: false,
         drawerActiveTintColor: colors.tint,

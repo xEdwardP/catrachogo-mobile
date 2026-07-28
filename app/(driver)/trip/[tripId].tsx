@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -6,6 +7,7 @@ import { Linking, Pressable, StyleSheet } from 'react-native';
 import { ReportNoShowModal } from '@/components/ReportNoShowModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap, type TripMapMarker } from '@/components/TripMap';
+import { Button } from '@/components/ui/Button';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { NO_SHOW_GRACE_PERIOD_MS } from '@/constants/NoShowGracePeriod';
@@ -32,6 +34,22 @@ const STATUS_BANNER: Record<TripStatus, string> = {
   in_progress: 'Viaje en curso',
   completed: 'Viaje completado',
   cancelled: 'Viaje cancelado',
+};
+
+const STATUS_ICON: Record<TripStatus, keyof typeof Ionicons.glyphMap> = {
+  pending: 'hourglass-outline',
+  accepted: 'navigate',
+  in_progress: 'car',
+  completed: 'checkmark-circle',
+  cancelled: 'close-circle',
+};
+
+const SHEET_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 8,
 };
 
 export default function DriverTripScreen() {
@@ -230,13 +248,20 @@ export default function DriverTripScreen() {
       />
 
       <View style={[styles.banner, { backgroundColor: colors.success }]}>
-        <Text style={styles.bannerText}>
-          {bannerText}
-          {routeDurationText && isOnTrip ? ` · ${routeDurationText}` : ''}
-        </Text>
+        <View style={[styles.bannerRow, styles.transparentBackground]}>
+          <Ionicons
+            name={trip ? STATUS_ICON[trip.status] : 'hourglass-outline'}
+            size={16}
+            color="#fff"
+          />
+          <Text style={styles.bannerText}>
+            {bannerText}
+            {routeDurationText && isOnTrip ? ` · ${routeDurationText}` : ''}
+          </Text>
+        </View>
       </View>
 
-      <View style={[styles.sheet, { backgroundColor: colors.background }]}>
+      <View style={[styles.sheet, { backgroundColor: colors.background }, SHEET_SHADOW]}>
         {(isPickupPhase || isTripPhase) && (
           <View style={styles.passengerRow}>
             <View style={[styles.avatar, { backgroundColor: colors.surfaceHighlight }]}>
@@ -251,9 +276,16 @@ export default function DriverTripScreen() {
           </View>
         )}
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          {trip?.status === 'in_progress' ? 'DESTINO' : 'ORIGEN'}
-        </Text>
+        <View style={[styles.labelRow, styles.transparentBackground]}>
+          <Ionicons
+            name={trip?.status === 'in_progress' ? 'flag-outline' : 'navigate-outline'}
+            size={12}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            {trip?.status === 'in_progress' ? 'DESTINO' : 'ORIGEN'}
+          </Text>
+        </View>
         <Text style={styles.addressText}>
           {trip?.status === 'in_progress'
             ? (trip?.destinationAddress ?? '—')
@@ -261,87 +293,104 @@ export default function DriverTripScreen() {
         </Text>
 
         <View style={styles.fareRow}>
-          <Text style={[styles.fareLabel, { color: colors.textSecondary }]}>TARIFA</Text>
+          <View style={[styles.labelRow, styles.transparentBackground]}>
+            <Ionicons name="cash-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.fareLabel, { color: colors.textSecondary }]}>TARIFA</Text>
+          </View>
           <Text style={styles.fareValue}>
             {trip ? `L. ${trip.fare.toFixed(2)} · ${trip.distanceKm.toFixed(1)} km` : '—'}
           </Text>
         </View>
 
         {actionError && (
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>{actionError}</Text>
+          <View style={[styles.noticeRow, styles.transparentBackground]}>
+            <Ionicons name="alert-circle" size={14} color="#C0392B" />
+            <Text style={[styles.errorText, { color: '#C0392B' }]}>{actionError}</Text>
+          </View>
         )}
 
         <View style={styles.actionsRow}>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.secondaryButton,
-              { borderColor: colors.textSecondary },
-            ]}
+          <Button
+            variant="secondary"
             onPress={handleCall}
             disabled={!canCall}
+            style={styles.actionButton}
           >
-            <Text style={!canCall && styles.disabledText}>Llamar</Text>
-          </Pressable>
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="call-outline" size={16} color={colors.text} />
+              <Text style={{ color: colors.text, fontWeight: '600' }}>Llamar</Text>
+            </View>
+          </Button>
 
           {trip?.status === 'accepted' && !trip.arrivedAt && (
-            <Pressable
-              style={[
-                styles.actionButton,
-                { backgroundColor: colors.tint },
-                !isNearTarget && styles.disabled,
-              ]}
+            <Button
               onPress={handleMarkArrived}
               disabled={isUpdatingStatus || !isNearTarget}
+              style={styles.actionButton}
             >
-              <Text style={styles.primaryButtonText}>Llegué</Text>
-            </Pressable>
+              <View style={[styles.buttonContent, styles.transparentBackground]}>
+                <Ionicons name="location-outline" size={16} color="#fff" />
+                <Text style={styles.primaryButtonText}>Llegué</Text>
+              </View>
+            </Button>
           )}
 
           {trip?.status === 'accepted' && trip.arrivedAt && (
-            <Pressable
-              style={[styles.actionButton, { backgroundColor: colors.tint }]}
-              onPress={handleStart}
-              disabled={isUpdatingStatus}
-            >
-              <Text style={styles.primaryButtonText}>Iniciar viaje</Text>
-            </Pressable>
+            <Button onPress={handleStart} disabled={isUpdatingStatus} style={styles.actionButton}>
+              <View style={[styles.buttonContent, styles.transparentBackground]}>
+                <Ionicons name="play-outline" size={16} color="#fff" />
+                <Text style={styles.primaryButtonText}>Iniciar viaje</Text>
+              </View>
+            </Button>
           )}
 
           {trip?.status === 'in_progress' && (
-            <Pressable
-              style={[
-                styles.actionButton,
-                { backgroundColor: colors.success },
-                !isNearTarget && styles.disabled,
-              ]}
+            <Button
               onPress={handleComplete}
               disabled={isUpdatingStatus || !isNearTarget}
+              style={[styles.actionButton, { backgroundColor: colors.success }]}
             >
-              <Text style={styles.primaryButtonText}>Completar viaje</Text>
-            </Pressable>
+              <View style={[styles.buttonContent, styles.transparentBackground]}>
+                <Ionicons name="checkmark-done-outline" size={16} color="#fff" />
+                <Text style={styles.primaryButtonText}>Completar viaje</Text>
+              </View>
+            </Button>
           )}
         </View>
 
         {isPickupPhase && !trip?.arrivedAt && !isNearTarget && (
-          <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-            Acércate al punto de recogida para poder marcar tu llegada.
-          </Text>
+          <View style={[styles.hintRow, styles.transparentBackground]}>
+            <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+              Acércate al punto de recogida para poder marcar tu llegada.
+            </Text>
+          </View>
         )}
 
         {isTripPhase && !isNearTarget && (
-          <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-            Acércate al destino para poder completar el viaje.
-          </Text>
+          <View style={[styles.hintRow, styles.transparentBackground]}>
+            <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+              Acércate al destino para poder completar el viaje.
+            </Text>
+          </View>
         )}
 
         {isWaitingForPassenger &&
           (!canReportNoShow ? (
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              Esperando al pasajero... podrás reportar que no llegó en {remainingLabel}.
-            </Text>
+            <View style={[styles.hintRow, styles.transparentBackground]}>
+              <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
+              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                Esperando al pasajero... podrás reportar que no llegó en {remainingLabel}.
+              </Text>
+            </View>
           ) : (
-            <Pressable onPress={() => setShowNoShowModal(true)} disabled={isReportingNoShow}>
+            <Pressable
+              style={[styles.hintRow, styles.transparentBackground]}
+              onPress={() => setShowNoShowModal(true)}
+              disabled={isReportingNoShow}
+            >
+              <Ionicons name="alert-outline" size={13} color="#DC2626" />
               <Text style={styles.noShowText}>El pasajero no llegó</Text>
             </Pressable>
           ))}
@@ -369,6 +418,11 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 12,
     alignItems: 'center',
+  },
+  bannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   bannerText: {
     color: '#fff',
@@ -409,6 +463,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
   label: {
     fontSize: 11,
     fontWeight: '700',
@@ -432,9 +494,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   errorText: {
     fontSize: 12,
-    marginBottom: 8,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -442,34 +509,30 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  secondaryButton: {
-    borderWidth: 1,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   primaryButtonText: {
     color: '#fff',
     fontWeight: '600',
   },
-  disabled: {
-    opacity: 0.6,
-  },
-  disabledText: {
-    opacity: 0.5,
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 10,
   },
   hintText: {
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 10,
   },
   noShowText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#DC2626',
-    textAlign: 'center',
-    marginTop: 10,
   },
 });
