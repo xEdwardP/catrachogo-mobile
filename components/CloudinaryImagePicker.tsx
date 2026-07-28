@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
@@ -26,14 +27,19 @@ export function CloudinaryImagePicker({ label, value, onUploaded }: Props) {
         <Image source={{ uri: value }} style={styles.thumbnail} />
       ) : (
         <View style={[styles.placeholder, { backgroundColor: colors.surfaceHighlight }]}>
-          <Text style={{ color: colors.textSecondary }}>+</Text>
+          <Ionicons name="cloud-upload-outline" size={20} color={colors.tint} />
         </View>
       )}
       <View style={styles.textContainer}>
         <Text style={styles.label}>{label}</Text>
-        <Text style={[styles.status, { color: value ? colors.success : colors.textSecondary }]}>
-          {isUploading ? 'Subiendo...' : value ? 'Subido' : 'Toca para subir'}
-        </Text>
+        <View style={[styles.statusRow, styles.transparentBackground]}>
+          {value && !isUploading && (
+            <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+          )}
+          <Text style={[styles.status, { color: value ? colors.success : colors.textSecondary }]}>
+            {isUploading ? 'Subiendo...' : value ? 'Subido' : 'Toca para subir'}
+          </Text>
+        </View>
       </View>
       {isUploading && <ActivityIndicator color={colors.tint} />}
     </Pressable>
@@ -68,8 +74,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   status: {
     fontSize: 12,
-    marginTop: 2,
   },
 });

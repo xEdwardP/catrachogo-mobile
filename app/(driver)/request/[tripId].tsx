@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getApiErrorMessage } from '@/lib/api/errors';
@@ -10,6 +12,14 @@ import { acceptTrip, rejectTrip } from '@/lib/api/trips';
 
 const RESPONSE_WINDOW_SECONDS = 20;
 const URGENT_THRESHOLD_SECONDS = 5;
+
+const CARD_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  elevation: 4,
+};
 
 export default function IncomingRequestScreen() {
   const { tripId, passengerName, originAddress, distanceKm, fare } = useLocalSearchParams<{
@@ -69,7 +79,7 @@ export default function IncomingRequestScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.card, { backgroundColor: colors.background }]}>
+      <View style={[styles.card, CARD_SHADOW, { backgroundColor: colors.background }]}>
         <View style={styles.progressTrack}>
           <View
             style={[
@@ -84,6 +94,7 @@ export default function IncomingRequestScreen() {
 
         <View style={styles.headerRow}>
           <View style={[styles.badge, { backgroundColor: colors.tint }]}>
+            <Ionicons name="flash" size={12} color="#fff" />
             <Text style={styles.badgeText}>NUEVA SOLICITUD</Text>
           </View>
           <Text
@@ -108,12 +119,18 @@ export default function IncomingRequestScreen() {
         </View>
 
         <View style={[styles.infoRow, { backgroundColor: colors.surfaceHighlight }]}>
-          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>RECOGER EN</Text>
+          <View style={[styles.infoLabelRow, styles.transparentBackground]}>
+            <Ionicons name="location-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>RECOGER EN</Text>
+          </View>
           <Text style={styles.infoValue}>{originAddress ?? '—'}</Text>
         </View>
 
         <View style={[styles.infoRow, { backgroundColor: colors.surfaceHighlight }]}>
-          <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>TARIFA</Text>
+          <View style={[styles.infoLabelRow, styles.transparentBackground]}>
+            <Ionicons name="cash-outline" size={12} color={colors.textSecondary} />
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>TARIFA</Text>
+          </View>
           <Text style={styles.infoValue}>
             {fareAmount !== null && distance !== null
               ? `L. ${fareAmount.toFixed(2)} · ${distance.toFixed(1)} km`
@@ -121,23 +138,35 @@ export default function IncomingRequestScreen() {
           </Text>
         </View>
 
-        {error && <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>}
+        {error && (
+          <View style={[styles.noticeRow, styles.transparentBackground]}>
+            <Ionicons name="alert-circle" size={14} color="#C0392B" />
+            <Text style={[styles.errorText, { color: '#C0392B' }]}>{error}</Text>
+          </View>
+        )}
 
         <View style={styles.buttonRow}>
-          <Pressable
-            style={[styles.button, styles.rejectButton, { borderColor: colors.textSecondary }]}
+          <Button
+            variant="secondary"
             onPress={handleReject}
             disabled={isResponding}
+            style={styles.button}
           >
-            <Text>Rechazar</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.button, { backgroundColor: colors.success }]}
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="close-circle-outline" size={16} color={colors.text} />
+              <Text style={{ color: colors.text, fontWeight: '600' }}>Rechazar</Text>
+            </View>
+          </Button>
+          <Button
             onPress={handleAccept}
             disabled={isResponding}
+            style={[styles.button, { backgroundColor: colors.success }]}
           >
-            <Text style={styles.acceptButtonText}>Aceptar</Text>
-          </Pressable>
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+              <Text style={styles.acceptButtonText}>Aceptar</Text>
+            </View>
+          </Button>
         </View>
       </View>
     </View>
@@ -173,6 +202,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -215,6 +247,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  infoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
   infoLabel: {
     fontSize: 11,
     fontWeight: '700',
@@ -222,6 +262,11 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 14,
     marginTop: 2,
+  },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   errorText: {
     fontSize: 12,
@@ -232,13 +277,11 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  rejectButton: {
-    borderWidth: 1,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   acceptButtonText: {
     color: '#fff',

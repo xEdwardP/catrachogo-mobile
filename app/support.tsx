@@ -10,7 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { Config } from '@/constants/Config';
 import { FAQ_ITEMS } from '@/constants/FaqItems';
-import { LEGAL_DOCUMENTS, type LegalDocId } from '@/constants/LegalContent';
+import { LEGAL_DOC_ICONS, LEGAL_DOCUMENTS, type LegalDocId } from '@/constants/LegalContent';
 
 const LEGAL_DOC_IDS = Object.keys(LEGAL_DOCUMENTS) as LegalDocId[];
 
@@ -43,7 +43,12 @@ function FaqRow({
 
   return (
     <View
-      style={[styles.faqRow, { borderBottomColor: colors.background }, isLast && styles.lastRow]}
+      style={[
+        styles.faqRow,
+        styles.transparentBackground,
+        { borderBottomColor: colors.background },
+        isLast && styles.lastRow,
+      ]}
     >
       <Pressable style={styles.faqQuestionRow} onPress={() => setIsOpen((current) => !current)}>
         <Text style={styles.faqQuestion}>{question}</Text>
@@ -113,7 +118,7 @@ export default function SupportScreen() {
             ]}
             onPress={() => router.push({ pathname: '/legal/[doc]', params: { doc: id } })}
           >
-            <Ionicons name="document-outline" size={16} color={colors.textSecondary} />
+            <Ionicons name={LEGAL_DOC_ICONS[id]} size={16} color={colors.textSecondary} />
             <Text style={styles.legalTitle}>{LEGAL_DOCUMENTS[id].title}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </Pressable>

@@ -11,7 +11,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuth } from '@/lib/auth/AuthContext';
 
-export function PassengerDrawerContent(props: DrawerContentComponentProps) {
+export function AppDrawerContent(props: DrawerContentComponentProps) {
   const { state, navigation, descriptors } = props;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];

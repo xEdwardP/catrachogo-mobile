@@ -1,19 +1,20 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { CloudinaryImagePicker } from '@/components/CloudinaryImagePicker';
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { VEHICLE_TYPE_LABELS, VEHICLE_TYPE_OPTIONS } from '@/constants/VehicleTypeLabels';
+import {
+  VEHICLE_TYPE_ICONS,
+  VEHICLE_TYPE_LABELS,
+  VEHICLE_TYPE_OPTIONS,
+} from '@/constants/VehicleTypeLabels';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { completeDriverProfile, type VehicleType } from '@/lib/api/drivers';
 
@@ -76,104 +77,98 @@ export default function DriverCompleteProfileScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <View style={[styles.iconCircle, { backgroundColor: colors.surfaceHighlight }]}>
+        <Ionicons name="car-sport-outline" size={26} color={colors.tint} />
+      </View>
       <Text style={styles.title}>Completa tu perfil de conductor</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Necesitamos estos datos y documentos para verificar tu cuenta antes de que puedas recibir
         viajes.
       </Text>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DATOS DEL VEHÍCULO</Text>
-
-      <View style={styles.vehicleTypeRow}>
-        {VEHICLE_TYPE_OPTIONS.map((option) => {
-          const selected = option === vehicleType;
-          return (
-            <Pressable
-              key={option}
-              style={[
-                styles.vehicleTypeChip,
-                { borderColor: colors.tint },
-                selected && { backgroundColor: colors.tint },
-              ]}
-              onPress={() => setVehicleType(option)}
-            >
-              <Text style={selected ? styles.vehicleTypeTextSelected : { color: colors.tint }}>
-                {VEHICLE_TYPE_LABELS[option]}
-              </Text>
-            </Pressable>
-          );
-        })}
+      <View style={[styles.sectionHeader, styles.transparentBackground]}>
+        <Ionicons name="car-outline" size={14} color={colors.textSecondary} />
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          DATOS DEL VEHÍCULO
+        </Text>
       </View>
 
-      <TextInput
-        style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
-        placeholder="Número de licencia"
-        placeholderTextColor={colors.textSecondary}
-        value={licenseNumber}
-        onChangeText={setLicenseNumber}
-      />
-      <View style={styles.row}>
-        <TextInput
-          style={[
-            styles.input,
-            styles.flex1,
-            { borderColor: colors.textSecondary, color: colors.text },
-          ]}
-          placeholder="Marca"
-          placeholderTextColor={colors.textSecondary}
-          value={brand}
-          onChangeText={setBrand}
-        />
-        <TextInput
-          style={[
-            styles.input,
-            styles.flex1,
-            { borderColor: colors.textSecondary, color: colors.text },
-          ]}
-          placeholder="Modelo"
-          placeholderTextColor={colors.textSecondary}
-          value={model}
-          onChangeText={setModel}
-        />
-      </View>
-      <View style={styles.row}>
-        <TextInput
-          style={[
-            styles.input,
-            styles.flex1,
-            { borderColor: colors.textSecondary, color: colors.text },
-          ]}
-          placeholder="Año"
-          placeholderTextColor={colors.textSecondary}
-          keyboardType="number-pad"
-          value={year}
-          onChangeText={setYear}
-        />
-        <TextInput
-          style={[
-            styles.input,
-            styles.flex1,
-            { borderColor: colors.textSecondary, color: colors.text },
-          ]}
-          placeholder="Color"
-          placeholderTextColor={colors.textSecondary}
-          value={color}
-          onChangeText={setColor}
-        />
-        <TextInput
-          style={[
-            styles.input,
-            styles.flex1,
-            { borderColor: colors.textSecondary, color: colors.text },
-          ]}
-          placeholder="Placa"
-          placeholderTextColor={colors.textSecondary}
-          value={plate}
-          onChangeText={setPlate}
-        />
-      </View>
+      <Card style={styles.card}>
+        <View style={styles.vehicleTypeRow}>
+          {VEHICLE_TYPE_OPTIONS.map((option) => {
+            const selected = option === vehicleType;
+            return (
+              <Pressable
+                key={option}
+                style={[
+                  styles.vehicleTypeChip,
+                  { borderColor: colors.tint },
+                  selected && { backgroundColor: colors.tint },
+                ]}
+                onPress={() => setVehicleType(option)}
+              >
+                <Ionicons
+                  name={VEHICLE_TYPE_ICONS[option]}
+                  size={16}
+                  color={selected ? '#fff' : colors.tint}
+                />
+                <Text style={selected ? styles.vehicleTypeTextSelected : { color: colors.tint }}>
+                  {VEHICLE_TYPE_LABELS[option]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>DOCUMENTOS Y FOTO</Text>
+        <TextField
+          style={styles.fieldSpaced}
+          placeholder="Número de licencia"
+          value={licenseNumber}
+          onChangeText={setLicenseNumber}
+        />
+        <View style={[styles.row, styles.fieldSpaced]}>
+          <TextField
+            style={styles.flex1}
+            placeholder="Marca"
+            value={brand}
+            onChangeText={setBrand}
+          />
+          <TextField
+            style={styles.flex1}
+            placeholder="Modelo"
+            value={model}
+            onChangeText={setModel}
+          />
+        </View>
+        <View style={[styles.row, styles.fieldSpaced]}>
+          <TextField
+            style={styles.flex1}
+            placeholder="Año"
+            keyboardType="number-pad"
+            value={year}
+            onChangeText={setYear}
+          />
+          <TextField
+            style={styles.flex1}
+            placeholder="Color"
+            value={color}
+            onChangeText={setColor}
+          />
+          <TextField
+            style={styles.flex1}
+            placeholder="Placa"
+            value={plate}
+            onChangeText={setPlate}
+          />
+        </View>
+      </Card>
+
+      <View style={[styles.sectionHeader, styles.transparentBackground]}>
+        <Ionicons name="cloud-upload-outline" size={14} color={colors.textSecondary} />
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+          DOCUMENTOS Y FOTO
+        </Text>
+      </View>
       <View style={styles.documentsList}>
         <CloudinaryImagePicker
           label="Identidad (frente)"
@@ -202,21 +197,17 @@ export default function DriverCompleteProfileScreen() {
         />
       </View>
 
-      <Pressable
-        style={[
-          styles.submitButton,
-          { backgroundColor: colors.tint },
-          (!canSubmit || isSubmitting) && styles.disabled,
-        ]}
+      <Button
         onPress={handleSubmit}
-        disabled={!canSubmit || isSubmitting}
+        loading={isSubmitting}
+        disabled={!canSubmit}
+        style={styles.submitButton}
       >
-        {isSubmitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
+        <View style={[styles.buttonContent, styles.transparentBackground]}>
+          <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
           <Text style={styles.submitButtonText}>Enviar para revisión</Text>
-        )}
-      </Pressable>
+        </View>
+      </Button>
     </ScrollView>
   );
 }
@@ -226,18 +217,41 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 12,
   },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
+  iconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 20,
     fontWeight: '700',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 8,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 8,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 16,
   },
   vehicleTypeRow: {
     flexDirection: 'row',
@@ -245,6 +259,9 @@ const styles = StyleSheet.create({
   },
   vehicleTypeChip: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 10,
@@ -254,13 +271,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-  },
   row: {
     flexDirection: 'row',
     gap: 10,
@@ -268,18 +278,20 @@ const styles = StyleSheet.create({
   flex1: {
     flex: 1,
   },
+  fieldSpaced: {
+    marginTop: 10,
+  },
   documentsList: {
     gap: 10,
   },
   submitButton: {
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
     marginTop: 12,
     marginBottom: 32,
   },
-  disabled: {
-    opacity: 0.6,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   submitButtonText: {
     color: '#fff',

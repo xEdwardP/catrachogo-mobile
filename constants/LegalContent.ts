@@ -1,3 +1,5 @@
+import type { Ionicons } from '@expo/vector-icons';
+
 export type LegalDocId = 'terms' | 'privacy' | 'licenses';
 
 export interface LegalSection {
@@ -10,6 +12,12 @@ export interface LegalDocument {
   updatedAt: string;
   sections: LegalSection[];
 }
+
+export const LEGAL_DOC_ICONS: Record<LegalDocId, keyof typeof Ionicons.glyphMap> = {
+  terms: 'document-text-outline',
+  privacy: 'shield-checkmark-outline',
+  licenses: 'ribbon-outline',
+};
 
 export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
   terms: {
