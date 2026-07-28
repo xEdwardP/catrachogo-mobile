@@ -1,17 +1,23 @@
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { FareZoneModal } from '@/components/FareZoneModal';
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { getFareZones, type FareZone } from '@/lib/api/fareZones';
+import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 export default function AdminZonesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const openDrawer = useOpenDrawer();
 
   const [zones, setZones] = useState<FareZone[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,31 +52,25 @@ export default function AdminZonesScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={{ color: colors.textSecondary }}>← Volver</Text>
-      </Pressable>
+      <ScreenHeader title="Zonas y tarifas" onMenuPress={openDrawer} />
 
       <View style={[styles.headerRow, styles.transparentBackground]}>
-        <View style={styles.transparentBackground}>
-          <Text style={styles.title}>Zonas y tarifas</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {isLoading ? 'Cargando...' : `${visibleZones.length} zonas configuradas`}
-          </Text>
-        </View>
-        <Pressable
-          style={[styles.newButton, { backgroundColor: colors.tint }]}
-          onPress={() => setEditingZone('new')}
-        >
-          <Text style={styles.newButtonText}>+ Nueva</Text>
-        </Pressable>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          {isLoading ? 'Cargando...' : `${visibleZones.length} zonas configuradas`}
+        </Text>
+        <Button onPress={() => setEditingZone('new')} style={styles.newButton}>
+          <View style={[styles.buttonContent, styles.transparentBackground]}>
+            <Ionicons name="add-circle-outline" size={16} color="#fff" />
+            <Text style={styles.newButtonText}>Nueva</Text>
+          </View>
+        </Button>
       </View>
 
-      <TextInput
-        style={[styles.search, { borderColor: colors.textSecondary, color: colors.text }]}
+      <TextField
         placeholder="Buscar zona"
-        placeholderTextColor={colors.textSecondary}
         value={search}
         onChangeText={setSearch}
+        style={styles.search}
       />
 
       {isLoading ? (
@@ -79,10 +79,12 @@ export default function AdminZonesScreen() {
         </View>
       ) : error ? (
         <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={22} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
         </View>
       ) : visibleZones.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="map-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {zones.length === 0 ? 'Todavía no hay zonas configuradas' : 'Sin resultados'}
           </Text>
@@ -99,11 +101,13 @@ export default function AdminZonesScreen() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
-            <Pressable
-              style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}
-              onPress={() => setEditingZone(item)}
-            >
-              <Text style={styles.zoneName}>{item.zoneName}</Text>
+            <Card style={styles.card} onPress={() => setEditingZone(item)}>
+              <View style={[styles.cardHeader, styles.transparentBackground]}>
+                <View style={[styles.zoneIconCircle, { backgroundColor: colors.background }]}>
+                  <Ionicons name="location-outline" size={17} color={colors.tint} />
+                </View>
+                <Text style={styles.zoneName}>{item.zoneName}</Text>
+              </View>
               <View style={[styles.fareRow, styles.transparentBackground]}>
                 <Text style={[styles.fareText, { color: colors.textSecondary }]}>
                   Base: L. {item.baseFare.toFixed(2)}
@@ -115,7 +119,7 @@ export default function AdminZonesScreen() {
               <Text style={[styles.centerText, { color: colors.textSecondary }]}>
                 Centro: {item.centerLat.toFixed(4)}, {item.centerLng.toFixed(4)}
               </Text>
-            </Pressable>
+            </Card>
           )}
         />
       )}
@@ -136,32 +140,27 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 8,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
   transparentBackground: {
     backgroundColor: 'transparent',
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: -4,
+    marginBottom: 14,
   },
   subtitle: {
     fontSize: 12,
-    marginTop: 2,
   },
   newButton: {
-    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 9,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   newButtonText: {
     color: '#fff',
@@ -169,11 +168,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   search: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
     marginBottom: 12,
   },
   centered: {
@@ -196,9 +190,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    borderRadius: 12,
-    padding: 14,
     gap: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 2,
+  },
+  zoneIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   zoneName: {
     fontSize: 15,

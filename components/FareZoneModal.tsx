@@ -1,9 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { ModalCard } from '@/components/ui/ModalCard';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { Typography } from '@/constants/Typography';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { createFareZone, updateFareZone, type FareZone } from '@/lib/api/fareZones';
 
@@ -95,141 +100,143 @@ export function FareZoneModal({ visible, zone, onDismiss, onSuccess }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleDismiss}>
-      <View style={styles.overlay} lightColor="rgba(0,0,0,0.4)" darkColor="rgba(0,0,0,0.6)">
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
-          <Text style={styles.title}>{zone ? 'Editar zona' : 'Nueva zona'}</Text>
-          <Text style={[styles.description, { color: colors.textSecondary }]}>
-            La tarifa aplicable a un viaje se calcula con la zona más cercana al punto de origen.
+    <ModalCard visible={visible} onDismiss={handleDismiss}>
+      <View style={[styles.titleRow, styles.transparentBackground]}>
+        <View style={[styles.iconCircle, { backgroundColor: colors.surfaceHighlight }]}>
+          <Ionicons name="map-outline" size={18} color={colors.tint} />
+        </View>
+        <Text style={styles.title}>{zone ? 'Editar zona' : 'Nueva zona'}</Text>
+      </View>
+      <Text style={[styles.description, { color: colors.textSecondary }]}>
+        La tarifa aplicable a un viaje se calcula con la zona más cercana al punto de origen.
+      </Text>
+
+      <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+        NOMBRE DE LA ZONA
+      </Text>
+      <TextField
+        placeholder="Ej. Centro de Tegucigalpa"
+        value={zoneName}
+        onChangeText={setZoneName}
+        editable={!isSubmitting}
+        style={styles.field}
+      />
+      <View style={styles.row}>
+        <View style={[styles.flex1, styles.transparentBackground]}>
+          <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+            TARIFA BASE (L.)
           </Text>
-
-          <TextInput
-            style={[styles.input, { borderColor: colors.textSecondary, color: colors.text }]}
-            placeholder="Nombre de la zona"
-            placeholderTextColor={colors.textSecondary}
-            value={zoneName}
-            onChangeText={setZoneName}
+          <TextField
+            placeholder="Ej. 30"
+            keyboardType="decimal-pad"
+            value={baseFare}
+            onChangeText={setBaseFare}
             editable={!isSubmitting}
+            style={styles.field}
           />
-          <View style={styles.row}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.flex1,
-                { borderColor: colors.textSecondary, color: colors.text },
-              ]}
-              placeholder="Tarifa base (L.)"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
-              value={baseFare}
-              onChangeText={setBaseFare}
-              editable={!isSubmitting}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                styles.flex1,
-                { borderColor: colors.textSecondary, color: colors.text },
-              ]}
-              placeholder="Tarifa por km (L.)"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
-              value={farePerKm}
-              onChangeText={setFarePerKm}
-              editable={!isSubmitting}
-            />
-          </View>
-          <View style={styles.row}>
-            <TextInput
-              style={[
-                styles.input,
-                styles.flex1,
-                { borderColor: colors.textSecondary, color: colors.text },
-              ]}
-              placeholder="Centro (lat)"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="default"
-              value={centerLat}
-              onChangeText={setCenterLat}
-              editable={!isSubmitting}
-            />
-            <TextInput
-              style={[
-                styles.input,
-                styles.flex1,
-                { borderColor: colors.textSecondary, color: colors.text },
-              ]}
-              placeholder="Centro (lng)"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="default"
-              value={centerLng}
-              onChangeText={setCenterLng}
-              editable={!isSubmitting}
-            />
-          </View>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <View style={styles.buttonRow}>
-            <Pressable
-              style={[styles.button, styles.secondaryButton, { borderColor: colors.textSecondary }]}
-              onPress={handleDismiss}
-              disabled={isSubmitting}
-            >
-              <Text>Cancelar</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.button,
-                { backgroundColor: colors.tint },
-                isSubmitting && styles.disabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.confirmButtonText}>Guardar</Text>
-              )}
-            </Pressable>
-          </View>
+        </View>
+        <View style={[styles.flex1, styles.transparentBackground]}>
+          <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+            TARIFA POR KM (L.)
+          </Text>
+          <TextField
+            placeholder="Ej. 5"
+            keyboardType="decimal-pad"
+            value={farePerKm}
+            onChangeText={setFarePerKm}
+            editable={!isSubmitting}
+            style={styles.field}
+          />
         </View>
       </View>
-    </Modal>
+      <View style={styles.row}>
+        <View style={[styles.flex1, styles.transparentBackground]}>
+          <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+            CENTRO (LATITUD)
+          </Text>
+          <TextField
+            placeholder="Ej. 14.0723"
+            value={centerLat}
+            onChangeText={setCenterLat}
+            editable={!isSubmitting}
+            style={styles.field}
+          />
+        </View>
+        <View style={[styles.flex1, styles.transparentBackground]}>
+          <Text style={[Typography.label, styles.fieldLabel, { color: colors.textSecondary }]}>
+            CENTRO (LONGITUD)
+          </Text>
+          <TextField
+            placeholder="Ej. -87.1921"
+            value={centerLng}
+            onChangeText={setCenterLng}
+            editable={!isSubmitting}
+            style={styles.field}
+          />
+        </View>
+      </View>
+
+      {error && (
+        <View style={[styles.noticeRow, styles.transparentBackground]}>
+          <Ionicons name="alert-circle" size={14} color="#C0392B" />
+          <Text style={styles.error}>{error}</Text>
+        </View>
+      )}
+
+      <View style={styles.buttonRow}>
+        <Button
+          variant="secondary"
+          onPress={handleDismiss}
+          disabled={isSubmitting}
+          style={styles.button}
+        >
+          <View style={[styles.buttonContent, styles.transparentBackground]}>
+            <Ionicons name="close-outline" size={16} color={colors.text} />
+            <Text style={{ color: colors.text, fontWeight: '600' }}>Cancelar</Text>
+          </View>
+        </Button>
+        <Button onPress={handleSubmit} loading={isSubmitting} style={styles.button}>
+          <View style={[styles.buttonContent, styles.transparentBackground]}>
+            <Ionicons name="checkmark-done-outline" size={16} color="#fff" />
+            <Text style={styles.confirmButtonText}>Guardar</Text>
+          </View>
+        </Button>
+      </View>
+    </ModalCard>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 16,
-    padding: 20,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 6,
   },
   description: {
     fontSize: 13,
     marginBottom: 16,
     lineHeight: 18,
   },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  field: {
     marginBottom: 10,
+  },
+  fieldLabel: {
+    marginBottom: 6,
   },
   row: {
     flexDirection: 'row',
@@ -238,10 +245,15 @@ const styles = StyleSheet.create({
   flex1: {
     flex: 1,
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   error: {
     color: '#C0392B',
     fontSize: 13,
-    marginBottom: 8,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -250,19 +262,14 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  secondaryButton: {
-    borderWidth: 1,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   confirmButtonText: {
     color: '#fff',
     fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

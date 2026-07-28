@@ -1,13 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
+import { VEHICLE_TYPE_ICONS, VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
 import { getAdminDrivers, type AdminDriverRow, type VerificationStatus } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
@@ -18,6 +24,7 @@ const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
 export default function AdminDriversScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const openDrawer = useOpenDrawer();
 
   const [status, setStatus] = useState<VerificationStatus>('pending');
   const [drivers, setDrivers] = useState<AdminDriverRow[]>([]);
@@ -68,39 +75,24 @@ export default function AdminDriversScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Conductores</Text>
+      <ScreenHeader title="Conductores" onMenuPress={openDrawer} />
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         {isLoading ? 'Cargando...' : `${visibleDrivers.length} ${statusLabel}`}
       </Text>
 
-      <View style={styles.tabsRow}>
-        {STATUS_TABS.map((tab) => {
-          const isActive = tab.value === status;
-          return (
-            <Pressable
-              key={tab.value}
-              style={[
-                styles.tab,
-                { borderColor: isActive ? colors.tint : colors.textSecondary },
-                isActive && { backgroundColor: colors.tint },
-              ]}
-              onPress={() => handleStatusChange(tab.value)}
-            >
-              <Text style={[styles.tabText, isActive ? styles.tabTextActive : undefined]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedTabs
+        tabs={STATUS_TABS}
+        value={status}
+        onChange={handleStatusChange}
+        style={styles.tabsRow}
+      />
 
-      <TextInput
-        style={[styles.search, { borderColor: colors.textSecondary, color: colors.text }]}
+      <TextField
         placeholder="Buscar por nombre o placa"
-        placeholderTextColor={colors.textSecondary}
         autoCapitalize="none"
         value={search}
         onChangeText={setSearch}
+        style={styles.search}
       />
 
       {isLoading ? (
@@ -109,10 +101,12 @@ export default function AdminDriversScreen() {
         </View>
       ) : error ? (
         <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={22} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
         </View>
       ) : visibleDrivers.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="people-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {drivers.length === 0 ? 'No hay conductores en este estado' : 'Sin resultados'}
           </Text>
@@ -131,8 +125,8 @@ export default function AdminDriversScreen() {
           renderItem={({ item }) => {
             const vehicle = item.vehicles[0];
             return (
-              <Pressable
-                style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}
+              <Card
+                style={styles.card}
                 onPress={() =>
                   router.push({
                     pathname: '/(admin)/driver/[driverId]',
@@ -140,12 +134,24 @@ export default function AdminDriversScreen() {
                   })
                 }
               >
-                <Text style={styles.driverName}>{item.user.name}</Text>
-                <Text style={[styles.driverMeta, { color: colors.textSecondary }]}>
-                  {VEHICLE_TYPE_LABELS[item.vehicleType]}
-                  {vehicle ? ` · ${vehicle.brand} ${vehicle.model}` : ''}
-                </Text>
-                <View style={styles.cardFooter}>
+                <View style={[styles.cardRow, styles.transparentBackground]}>
+                  <View style={[styles.driverIconCircle, { backgroundColor: colors.background }]}>
+                    <Ionicons
+                      name={VEHICLE_TYPE_ICONS[item.vehicleType]}
+                      size={17}
+                      color={colors.tint}
+                    />
+                  </View>
+                  <View style={[styles.cardMain, styles.transparentBackground]}>
+                    <Text style={styles.driverName}>{item.user.name}</Text>
+                    <Text style={[styles.driverMeta, { color: colors.textSecondary }]}>
+                      {VEHICLE_TYPE_LABELS[item.vehicleType]}
+                      {vehicle ? ` · ${vehicle.brand} ${vehicle.model}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+                </View>
+                <View style={[styles.cardFooter, styles.transparentBackground]}>
                   <Text style={[styles.plate, { color: colors.textSecondary }]}>
                     {vehicle?.plate ?? '—'}
                   </Text>
@@ -153,7 +159,7 @@ export default function AdminDriversScreen() {
                     {new Date(item.user.createdAt).toLocaleDateString('es-HN')}
                   </Text>
                 </View>
-              </Pressable>
+              </Card>
             );
           }}
         />
@@ -168,40 +174,18 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
+  transparentBackground: {
+    backgroundColor: 'transparent',
   },
   subtitle: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: -4,
     marginBottom: 14,
   },
   tabsRow: {
-    flexDirection: 'row',
-    gap: 8,
     marginBottom: 12,
   },
-  tab: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#fff',
-  },
   search: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
     marginBottom: 12,
   },
   centered: {
@@ -224,8 +208,22 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    borderRadius: 12,
-    padding: 14,
+    gap: 8,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  driverIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardMain: {
+    flex: 1,
   },
   driverName: {
     fontSize: 15,
@@ -233,13 +231,11 @@ const styles = StyleSheet.create({
   },
   driverMeta: {
     fontSize: 13,
-    marginTop: 3,
+    marginTop: 2,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
-    backgroundColor: 'transparent',
   },
   plate: {
     fontSize: 12,

@@ -1,8 +1,13 @@
-import { router, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import {
@@ -12,6 +17,7 @@ import {
   type WithdrawalStatus,
 } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const STATUS_TABS: { value: WithdrawalStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
@@ -28,6 +34,7 @@ const STATUS_LABELS: Record<WithdrawalStatus, string> = {
 export default function AdminWithdrawalsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const openDrawer = useOpenDrawer();
 
   const [status, setStatus] = useState<WithdrawalStatus>('pending');
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>([]);
@@ -90,38 +97,25 @@ export default function AdminWithdrawalsScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={{ color: colors.textSecondary }}>← Volver</Text>
-      </Pressable>
-
-      <Text style={styles.title}>Retiros</Text>
+      <ScreenHeader title="Retiros" onMenuPress={openDrawer} />
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Envíos manuales vía PayPal — marca como completado después de transferir por fuera de la
         app.
       </Text>
 
-      <View style={styles.tabsRow}>
-        {STATUS_TABS.map((tab) => {
-          const isActive = tab.value === status;
-          return (
-            <Pressable
-              key={tab.value}
-              style={[
-                styles.tab,
-                { borderColor: isActive ? colors.tint : colors.textSecondary },
-                isActive && { backgroundColor: colors.tint },
-              ]}
-              onPress={() => handleStatusChange(tab.value)}
-            >
-              <Text style={[styles.tabText, isActive ? styles.tabTextActive : undefined]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <SegmentedTabs
+        tabs={STATUS_TABS}
+        value={status}
+        onChange={handleStatusChange}
+        style={styles.tabsRow}
+      />
 
-      {error && <Text style={styles.errorInline}>{error}</Text>}
+      {error && (
+        <View style={[styles.noticeRow, styles.transparentBackground]}>
+          <Ionicons name="alert-circle" size={14} color="#C0392B" />
+          <Text style={styles.errorInline}>{error}</Text>
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -129,6 +123,7 @@ export default function AdminWithdrawalsScreen() {
         </View>
       ) : withdrawals.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="wallet-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No hay solicitudes en este estado
           </Text>
@@ -142,14 +137,19 @@ export default function AdminWithdrawalsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
+            <Card style={styles.card}>
               <View style={[styles.cardHeader, styles.transparentBackground]}>
-                <Text style={styles.driverName}>{item.driver.user.name}</Text>
+                <View style={[styles.rowIcon, { backgroundColor: colors.background }]}>
+                  <Ionicons name="cash-outline" size={17} color={colors.tint} />
+                </View>
+                <View style={[styles.cardMain, styles.transparentBackground]}>
+                  <Text style={styles.driverName}>{item.driver.user.name}</Text>
+                  <Text style={[styles.paypalEmail, { color: colors.textSecondary }]}>
+                    {item.paypalEmail}
+                  </Text>
+                </View>
                 <Text style={styles.amountText}>L. {item.amount.toFixed(2)}</Text>
               </View>
-              <Text style={[styles.paypalEmail, { color: colors.textSecondary }]}>
-                {item.paypalEmail}
-              </Text>
               <View style={[styles.cardFooter, styles.transparentBackground]}>
                 <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                   {new Date(item.requestedAt).toLocaleString('es-HN')}
@@ -163,35 +163,31 @@ export default function AdminWithdrawalsScreen() {
 
               {status === 'pending' && (
                 <View style={[styles.actionsRow, styles.transparentBackground]}>
-                  <Pressable
-                    style={[
-                      styles.actionButton,
-                      styles.rejectButton,
-                      { borderColor: colors.textSecondary },
-                    ]}
+                  <Button
+                    variant="secondary"
                     onPress={() => confirmResolve(item, 'rejected')}
                     disabled={resolvingId === item.id}
+                    style={styles.actionButton}
                   >
-                    <Text>Rechazar</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.actionButton,
-                      { backgroundColor: colors.success },
-                      resolvingId === item.id && styles.disabled,
-                    ]}
+                    <View style={[styles.buttonContent, styles.transparentBackground]}>
+                      <Ionicons name="close-circle-outline" size={16} color={colors.text} />
+                      <Text style={{ color: colors.text, fontWeight: '600' }}>Rechazar</Text>
+                    </View>
+                  </Button>
+                  <Button
                     onPress={() => confirmResolve(item, 'completed')}
+                    loading={resolvingId === item.id}
                     disabled={resolvingId === item.id}
+                    style={[styles.actionButton, { backgroundColor: colors.success }]}
                   >
-                    {resolvingId === item.id ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
+                    <View style={[styles.buttonContent, styles.transparentBackground]}>
+                      <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
                       <Text style={styles.completeText}>Marcar completado</Text>
-                    )}
-                  </Pressable>
+                    </View>
+                  </Button>
                 </View>
               )}
-            </View>
+            </Card>
           )}
         />
       )}
@@ -205,43 +201,23 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
   subtitle: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: -4,
     marginBottom: 14,
   },
   tabsRow: {
-    flexDirection: 'row',
-    gap: 8,
     marginBottom: 12,
   },
-  tab: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
+  noticeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#fff',
+    gap: 6,
+    marginBottom: 12,
   },
   errorInline: {
     color: '#C0392B',
     fontSize: 13,
-    marginBottom: 12,
   },
   centered: {
     flex: 1,
@@ -263,17 +239,25 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    borderRadius: 12,
-    padding: 14,
     gap: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   transparentBackground: {
     backgroundColor: 'transparent',
+  },
+  rowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardMain: {
+    flex: 1,
   },
   driverName: {
     fontSize: 15,
@@ -285,6 +269,7 @@ const styles = StyleSheet.create({
   },
   paypalEmail: {
     fontSize: 13,
+    marginTop: 2,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -305,19 +290,14 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  rejectButton: {
-    borderWidth: 1,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   completeText: {
     color: '#fff',
     fontWeight: '600',
-  },
-  disabled: {
-    opacity: 0.6,
   },
 });

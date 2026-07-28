@@ -1,7 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Card } from '@/components/ui/Card';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getCancellationReasonLabel } from '@/constants/CancellationReasons';
 import Colors from '@/constants/Colors';
@@ -9,13 +13,17 @@ import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripSt
 import { getAdminTrips } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import type { Trip, TripStatus } from '@/lib/api/trips';
+import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const PAGE_SIZE = 20;
 
-const STATUS_TABS: { value: TripStatus | null; label: string }[] = [
-  { value: null, label: 'Todos' },
+const STATUS_TABS_ROW_1: { value: TripStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'Todos' },
   { value: 'pending', label: 'Pendientes' },
   { value: 'accepted', label: 'Aceptados' },
+];
+
+const STATUS_TABS_ROW_2: { value: TripStatus | 'all'; label: string }[] = [
   { value: 'in_progress', label: 'En curso' },
   { value: 'completed', label: 'Completados' },
   { value: 'cancelled', label: 'Cancelados' },
@@ -24,8 +32,9 @@ const STATUS_TABS: { value: TripStatus | null; label: string }[] = [
 export default function AdminTripsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const openDrawer = useOpenDrawer();
 
-  const [status, setStatus] = useState<TripStatus | null>(null);
+  const [status, setStatus] = useState<TripStatus | 'all'>('all');
   const [trips, setTrips] = useState<Trip[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -33,8 +42,8 @@ export default function AdminTripsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadPage = useCallback((forStatus: TripStatus | null, pageToLoad: number) => {
-    getAdminTrips(forStatus ?? undefined, pageToLoad, PAGE_SIZE)
+  const loadPage = useCallback((forStatus: TripStatus | 'all', pageToLoad: number) => {
+    getAdminTrips(forStatus === 'all' ? undefined : forStatus, pageToLoad, PAGE_SIZE)
       .then((result) => {
         setTrips((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
         setTotal(result.total);
@@ -53,7 +62,7 @@ export default function AdminTripsScreen() {
     loadPage(status, 1);
   }, [status, loadPage]);
 
-  function handleStatusChange(nextStatus: TripStatus | null) {
+  function handleStatusChange(nextStatus: TripStatus | 'all') {
     if (nextStatus === status) return;
     setStatus(nextStatus);
   }
@@ -68,36 +77,23 @@ export default function AdminTripsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Viajes</Text>
+      <ScreenHeader title="Viajes" onMenuPress={openDrawer} />
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         {isLoading ? 'Cargando...' : `${total} viajes en total`}
       </Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsScroll}
-        contentContainerStyle={styles.tabsRow}
-      >
-        {STATUS_TABS.map((tab) => {
-          const isActive = tab.value === status;
-          return (
-            <Pressable
-              key={tab.label}
-              style={[
-                styles.tab,
-                { borderColor: isActive ? colors.tint : colors.textSecondary },
-                isActive && { backgroundColor: colors.tint },
-              ]}
-              onPress={() => handleStatusChange(tab.value)}
-            >
-              <Text style={[styles.tabText, isActive ? styles.tabTextActive : undefined]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <SegmentedTabs
+        tabs={STATUS_TABS_ROW_1}
+        value={status}
+        onChange={handleStatusChange}
+        style={styles.tabsRowSpaced}
+      />
+      <SegmentedTabs
+        tabs={STATUS_TABS_ROW_2}
+        value={status}
+        onChange={handleStatusChange}
+        style={styles.tabsRow}
+      />
 
       {isLoading ? (
         <View style={styles.centered}>
@@ -105,10 +101,12 @@ export default function AdminTripsScreen() {
         </View>
       ) : error ? (
         <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={22} color={colors.textSecondary} />
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{error}</Text>
         </View>
       ) : trips.length === 0 ? (
         <View style={styles.centered}>
+          <Ionicons name="car-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No hay viajes con este filtro
           </Text>
@@ -133,7 +131,7 @@ export default function AdminTripsScreen() {
           renderItem={({ item }) => {
             const badgeColors = TRIP_STATUS_BADGE_COLORS[item.status];
             return (
-              <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
+              <Card style={styles.card}>
                 <View style={[styles.cardHeader, styles.transparentBackground]}>
                   <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
                     <Text style={[styles.badgeText, { color: badgeColors.text }]}>
@@ -142,24 +140,33 @@ export default function AdminTripsScreen() {
                   </View>
                   <Text style={styles.fareText}>L. {item.fare.toFixed(2)}</Text>
                 </View>
-                <Text style={styles.addressText} numberOfLines={1}>
-                  {item.originAddress}
-                </Text>
-                <Text
-                  style={[styles.addressText, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  → {item.destinationAddress}
-                </Text>
+                <View style={[styles.addressRow, styles.transparentBackground]}>
+                  <Ionicons name="navigate-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.addressText} numberOfLines={1}>
+                    {item.originAddress}
+                  </Text>
+                </View>
+                <View style={[styles.addressRow, styles.transparentBackground]}>
+                  <Ionicons name="flag-outline" size={13} color={colors.textSecondary} />
+                  <Text
+                    style={[styles.addressText, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {item.destinationAddress}
+                  </Text>
+                </View>
                 <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                   {new Date(item.requestedAt).toLocaleString('es-HN')}
                 </Text>
                 {item.status === 'cancelled' && (
-                  <Text style={[styles.cancelReasonText, { color: colors.textSecondary }]}>
-                    Motivo: {getCancellationReasonLabel(item.cancelReason)}
-                  </Text>
+                  <View style={[styles.addressRow, styles.transparentBackground]}>
+                    <Ionicons name="alert-circle-outline" size={13} color={colors.textSecondary} />
+                    <Text style={[styles.cancelReasonText, { color: colors.textSecondary }]}>
+                      Motivo: {getCancellationReasonLabel(item.cancelReason)}
+                    </Text>
+                  </View>
                 )}
-              </View>
+              </Card>
             );
           }}
         />
@@ -174,35 +181,16 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 16,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
   subtitle: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: -4,
     marginBottom: 14,
   },
-  tabsScroll: {
-    flexGrow: 0,
+  tabsRow: {
     marginBottom: 12,
   },
-  tabsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tab: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: '#fff',
+  tabsRowSpaced: {
+    marginBottom: 8,
   },
   centered: {
     flex: 1,
@@ -224,8 +212,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   card: {
-    borderRadius: 12,
-    padding: 14,
     gap: 4,
   },
   cardHeader: {
@@ -250,7 +236,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   addressText: {
+    flex: 1,
     fontSize: 14,
   },
   dateText: {
@@ -259,7 +251,6 @@ const styles = StyleSheet.create({
   },
   cancelReasonText: {
     fontSize: 12,
-    marginTop: 2,
   },
   footerLoading: {
     paddingVertical: 16,

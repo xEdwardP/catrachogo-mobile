@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { INCIDENT_REPORT_CATEGORY_LABELS } from '@/constants/IncidentReportLabels';
+import {
+  INCIDENT_REPORT_CATEGORY_ICONS,
+  INCIDENT_REPORT_CATEGORY_LABELS,
+} from '@/constants/IncidentReportLabels';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import type { AdminIncidentReportRow } from '@/lib/api/admin';
 
@@ -65,13 +69,27 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
           {report && (
             <ScrollView contentContainerStyle={styles.scrollContent}>
               <View style={[styles.headerRow, styles.transparentBackground]}>
-                <View style={styles.transparentBackground}>
-                  <Text style={styles.title}>
-                    {INCIDENT_REPORT_CATEGORY_LABELS[report.category]}
-                  </Text>
-                  <Text style={[styles.date, { color: colors.textSecondary }]}>
-                    {new Date(report.createdAt).toLocaleString('es-HN')}
-                  </Text>
+                <View style={[styles.titleRow, styles.transparentBackground]}>
+                  <View
+                    style={[
+                      styles.categoryIconCircle,
+                      { backgroundColor: colors.surfaceHighlight },
+                    ]}
+                  >
+                    <Ionicons
+                      name={INCIDENT_REPORT_CATEGORY_ICONS[report.category]}
+                      size={16}
+                      color={colors.tint}
+                    />
+                  </View>
+                  <View style={styles.transparentBackground}>
+                    <Text style={styles.title}>
+                      {INCIDENT_REPORT_CATEGORY_LABELS[report.category]}
+                    </Text>
+                    <Text style={[styles.date, { color: colors.textSecondary }]}>
+                      {new Date(report.createdAt).toLocaleString('es-HN')}
+                    </Text>
+                  </View>
                 </View>
                 <Pressable onPress={handleDismiss} hitSlop={8}>
                   <Ionicons name="close" size={20} color={colors.textSecondary} />
@@ -106,28 +124,31 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
                 </View>
               </View>
 
-              {error && <Text style={styles.error}>{error}</Text>}
+              {error && (
+                <View style={[styles.noticeRow, styles.transparentBackground]}>
+                  <Ionicons name="alert-circle" size={14} color="#C0392B" />
+                  <Text style={styles.error}>{error}</Text>
+                </View>
+              )}
 
               {report.status === 'pending' ? (
-                <Pressable
-                  style={[
-                    styles.button,
-                    { backgroundColor: colors.success },
-                    isResolving && styles.disabled,
-                  ]}
+                <Button
                   onPress={confirmMarkReviewed}
-                  disabled={isResolving}
+                  loading={isResolving}
+                  style={{ backgroundColor: colors.success }}
                 >
-                  {isResolving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="checkmark-done-outline" size={17} color="#fff" />
                     <Text style={styles.buttonText}>Marcar revisado</Text>
-                  )}
-                </Pressable>
+                  </View>
+                </Button>
               ) : (
-                <Text style={[styles.resolvedText, { color: colors.textSecondary }]}>
-                  Este reporte ya fue revisado.
-                </Text>
+                <View style={[styles.resolvedRow, styles.transparentBackground]}>
+                  <Ionicons name="checkmark-circle" size={14} color={colors.textSecondary} />
+                  <Text style={[styles.resolvedText, { color: colors.textSecondary }]}>
+                    Este reporte ya fue revisado.
+                  </Text>
+                </View>
               )}
             </ScrollView>
           )}
@@ -158,6 +179,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  categoryIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   transparentBackground: {
     backgroundColor: 'transparent',
@@ -199,23 +233,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
     maxWidth: 160,
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   error: {
     color: '#C0392B',
     fontSize: 13,
-    marginBottom: 12,
   },
-  button: {
-    borderRadius: 8,
-    paddingVertical: 13,
+  buttonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
   },
-  disabled: {
-    opacity: 0.6,
+  resolvedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
   },
   resolvedText: {
     fontSize: 13,
