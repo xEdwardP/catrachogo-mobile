@@ -1,0 +1,12 @@
+import { Stack } from 'expo-router';
+
+export default function DriverLayout() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="complete-profile" />
+      <Stack.Screen name="request/[tripId]" />
+      <Stack.Screen name="trip/[tripId]" />
+    </Stack>
+  );
+}
