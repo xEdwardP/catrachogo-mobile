@@ -1,3 +1,5 @@
+import type { Ionicons } from '@expo/vector-icons';
+
 import type { IncidentReportCategory } from '@/lib/api/incidentReports';
 
 export const INCIDENT_REPORT_CATEGORY_LABELS: Record<IncidentReportCategory, string> = {
@@ -6,6 +8,17 @@ export const INCIDENT_REPORT_CATEGORY_LABELS: Record<IncidentReportCategory, str
   vehicle_condition: 'Estado del vehículo',
   payment: 'Cobro incorrecto',
   other: 'Otro',
+};
+
+export const INCIDENT_REPORT_CATEGORY_ICONS: Record<
+  IncidentReportCategory,
+  keyof typeof Ionicons.glyphMap
+> = {
+  safety: 'shield-outline',
+  driver_behavior: 'person-outline',
+  vehicle_condition: 'car-outline',
+  payment: 'cash-outline',
+  other: 'ellipsis-horizontal-circle-outline',
 };
 
 export const INCIDENT_REPORT_CATEGORY_OPTIONS: IncidentReportCategory[] = [

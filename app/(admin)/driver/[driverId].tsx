@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -11,6 +12,8 @@ import {
 } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
@@ -21,6 +24,12 @@ const STATUS_LABELS: Record<AdminDriverRow['verificationStatus'], string> = {
   pending: 'Pendiente de revisión',
   approved: 'Aprobado',
   rejected: 'Rechazado',
+};
+
+const STATUS_ICONS: Record<AdminDriverRow['verificationStatus'], keyof typeof Ionicons.glyphMap> = {
+  pending: 'hourglass-outline',
+  approved: 'checkmark-circle',
+  rejected: 'close-circle',
 };
 
 export default function AdminDriverDetailScreen() {
@@ -93,10 +102,12 @@ export default function AdminDriverDetailScreen() {
   if (!driver) {
     return (
       <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={22} color={colors.textSecondary} />
         <Text style={[styles.errorText, { color: colors.textSecondary }]}>
           {error ?? 'No encontramos a este conductor.'}
         </Text>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={16} color={colors.tint} />
           <Text style={{ color: colors.tint, fontWeight: '600' }}>Volver</Text>
         </Pressable>
       </View>
@@ -120,7 +131,8 @@ export default function AdminDriverDetailScreen() {
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={{ color: colors.textSecondary }}>← Volver</Text>
+        <Ionicons name="arrow-back" size={16} color={colors.textSecondary} />
+        <Text style={{ color: colors.textSecondary }}>Volver</Text>
       </Pressable>
 
       <View style={styles.profileRow}>
@@ -151,12 +163,17 @@ export default function AdminDriverDetailScreen() {
       </View>
 
       <View style={[styles.statusPill, { backgroundColor: colors.surfaceHighlight }]}>
+        <Ionicons
+          name={STATUS_ICONS[driver.verificationStatus]}
+          size={13}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.statusText, { color: colors.textSecondary }]}>
           {STATUS_LABELS[driver.verificationStatus]}
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceHighlight }]}>
+      <Card style={styles.card}>
         {details.map((detail) => (
           <View key={detail.label} style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
@@ -165,9 +182,12 @@ export default function AdminDriverDetailScreen() {
             <Text style={styles.detailValue}>{detail.value}</Text>
           </View>
         ))}
-      </View>
+      </Card>
 
-      <Text style={styles.sectionTitle}>Documentos</Text>
+      <View style={[styles.sectionHeader, styles.transparentBackground]}>
+        <Ionicons name="folder-open-outline" size={14} color={colors.textSecondary} />
+        <Text style={styles.sectionTitle}>Documentos</Text>
+      </View>
       <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
         Toca una imagen para verla en grande.
       </Text>
@@ -178,10 +198,15 @@ export default function AdminDriverDetailScreen() {
             style={styles.documentItem}
             onPress={() => setPreviewUrl(document.url)}
           >
-            <Image
-              source={{ uri: document.url }}
-              style={[styles.documentImage, { borderColor: colors.textSecondary }]}
-            />
+            <View style={styles.documentImageWrapper}>
+              <Image
+                source={{ uri: document.url }}
+                style={[styles.documentImage, { borderColor: colors.textSecondary }]}
+              />
+              <View style={[styles.zoomBadge, { backgroundColor: colors.background }]}>
+                <Ionicons name="expand-outline" size={12} color={colors.textSecondary} />
+              </View>
+            </View>
             <Text style={[styles.documentLabel, { color: colors.textSecondary }]}>
               {document.label}
             </Text>
@@ -189,42 +214,50 @@ export default function AdminDriverDetailScreen() {
         ))}
       </View>
 
-      {error && <Text style={styles.errorInline}>{error}</Text>}
+      {error && (
+        <View style={[styles.noticeRow, styles.transparentBackground]}>
+          <Ionicons name="alert-circle" size={14} color="#C0392B" />
+          <Text style={styles.errorInline}>{error}</Text>
+        </View>
+      )}
 
       {driver.verificationStatus === 'pending' ? (
         <View style={styles.actionsRow}>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.rejectButton,
-              { borderColor: colors.textSecondary },
-            ]}
+          <Button
+            variant="secondary"
             onPress={() => confirmResolve('rejected')}
             disabled={isResolving}
+            style={styles.actionButton}
           >
-            <Text>Rechazar</Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.actionButton,
-              { backgroundColor: colors.success },
-              isResolving && styles.disabled,
-            ]}
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="close-circle-outline" size={16} color={colors.text} />
+              <Text style={{ color: colors.text, fontWeight: '600' }}>Rechazar</Text>
+            </View>
+          </Button>
+          <Button
             onPress={() => confirmResolve('approved')}
+            loading={isResolving}
             disabled={isResolving}
+            style={[styles.actionButton, { backgroundColor: colors.success }]}
           >
-            {isResolving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
+            <View style={[styles.buttonContent, styles.transparentBackground]}>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
               <Text style={styles.approveText}>Aprobar</Text>
-            )}
-          </Pressable>
+            </View>
+          </Button>
         </View>
       ) : (
-        <Text style={[styles.resolvedText, { color: colors.textSecondary }]}>
-          Este conductor ya fue{' '}
-          {driver.verificationStatus === 'approved' ? 'aprobado' : 'rechazado'}.
-        </Text>
+        <View style={[styles.resolvedRow, styles.transparentBackground]}>
+          <Ionicons
+            name={STATUS_ICONS[driver.verificationStatus]}
+            size={13}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.resolvedText, { color: colors.textSecondary }]}>
+            Este conductor ya fue{' '}
+            {driver.verificationStatus === 'approved' ? 'aprobado' : 'rechazado'}.
+          </Text>
+        </View>
       )}
 
       <Modal
@@ -256,17 +289,28 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 40,
   },
+  transparentBackground: {
+    backgroundColor: 'transparent',
+  },
   backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
     paddingVertical: 4,
   },
   errorText: {
     fontSize: 14,
   },
+  noticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+  },
   errorInline: {
     color: '#C0392B',
     fontSize: 13,
-    marginTop: 16,
   },
   profileRow: {
     flexDirection: 'row',
@@ -299,6 +343,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -310,8 +357,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    borderRadius: 14,
-    padding: 16,
     marginTop: 16,
   },
   detailRow: {
@@ -328,10 +373,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 24,
+  },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    marginTop: 24,
   },
   sectionHint: {
     fontSize: 12,
@@ -347,11 +397,24 @@ const styles = StyleSheet.create({
     width: '48%',
     flexGrow: 1,
   },
+  documentImageWrapper: {
+    position: 'relative',
+  },
   documentImage: {
     width: '100%',
     height: 120,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  zoomBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   documentLabel: {
     fontSize: 11,
@@ -364,25 +427,25 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 8,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  rejectButton: {
-    borderWidth: 1,
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   approveText: {
     color: '#fff',
     fontWeight: '600',
   },
-  disabled: {
-    opacity: 0.6,
+  resolvedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 24,
   },
   resolvedText: {
     fontSize: 13,
-    textAlign: 'center',
-    marginTop: 24,
   },
   previewOverlay: {
     flex: 1,
