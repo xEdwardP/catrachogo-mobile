@@ -15,6 +15,8 @@ import { getAdminDrivers, type AdminDriverRow, type VerificationStatus } from '@
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
+const PAGE_SIZE = 20;
+
 const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
   { value: 'approved', label: 'Aprobados' },
@@ -28,24 +30,33 @@ export default function AdminDriversScreen() {
 
   const [status, setStatus] = useState<VerificationStatus>('pending');
   const [drivers, setDrivers] = useState<AdminDriverRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const fetchDrivers = useCallback((forStatus: VerificationStatus) => {
-    getAdminDrivers(forStatus)
+  const loadPage = useCallback((forStatus: VerificationStatus, pageToLoad: number) => {
+    getAdminDrivers(forStatus, pageToLoad, PAGE_SIZE)
       .then((result) => {
-        setDrivers(result);
+        setDrivers((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+        setTotal(result.total);
         setError(null);
       })
       .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      });
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchDrivers(status);
-    }, [fetchDrivers, status]),
+      setIsLoading(true);
+      setPage(1);
+      loadPage(status, 1);
+    }, [loadPage, status]),
   );
 
   function handleStatusChange(nextStatus: VerificationStatus) {
@@ -54,6 +65,14 @@ export default function AdminDriversScreen() {
     setSearch('');
     setDrivers([]);
     setStatus(nextStatus);
+  }
+
+  function handleEndReached() {
+    if (isLoadingMore || isLoading || drivers.length >= total) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    setPage(nextPage);
+    loadPage(status, nextPage);
   }
 
   const visibleDrivers = useMemo(() => {
@@ -122,6 +141,15 @@ export default function AdminDriversScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.tint} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => {
             const vehicle = item.vehicles[0];
             return (
@@ -243,5 +271,8 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 12,
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
 });
