@@ -22,6 +22,8 @@ import {
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
+const PAGE_SIZE = 20;
+
 const STATUS_TABS: { value: IncidentReportStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
   { value: 'reviewed', label: 'Revisados' },
@@ -34,23 +36,32 @@ export default function AdminIncidentReportsScreen() {
 
   const [status, setStatus] = useState<IncidentReportStatus>('pending');
   const [reports, setReports] = useState<AdminIncidentReportRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<AdminIncidentReportRow | null>(null);
 
-  const fetchReports = useCallback((forStatus: IncidentReportStatus) => {
-    getAdminIncidentReports(forStatus)
+  const loadPage = useCallback((forStatus: IncidentReportStatus, pageToLoad: number) => {
+    getAdminIncidentReports(forStatus, pageToLoad, PAGE_SIZE)
       .then((result) => {
-        setReports(result);
+        setReports((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+        setTotal(result.total);
         setError(null);
       })
       .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      });
   }, []);
 
   useEffect(() => {
-    fetchReports(status);
-  }, [status, fetchReports]);
+    setIsLoading(true);
+    setPage(1);
+    loadPage(status, 1);
+  }, [status, loadPage]);
 
   function handleStatusChange(nextStatus: IncidentReportStatus) {
     if (nextStatus === status) return;
@@ -59,9 +70,18 @@ export default function AdminIncidentReportsScreen() {
     setStatus(nextStatus);
   }
 
+  function handleEndReached() {
+    if (isLoadingMore || isLoading || reports.length >= total) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    setPage(nextPage);
+    loadPage(status, nextPage);
+  }
+
   async function handleMarkReviewed(id: string) {
     await markIncidentReportReviewed(id);
     setReports((current) => current.filter((item) => item.id !== id));
+    setTotal((current) => current - 1);
     setSelectedReport(null);
   }
 
@@ -103,6 +123,15 @@ export default function AdminIncidentReportsScreen() {
           data={reports}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.tint} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <Card style={styles.card} onPress={() => setSelectedReport(item)}>
               <View style={[styles.cardHeader, styles.transparentBackground]}>
@@ -217,5 +246,8 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
 });

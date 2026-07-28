@@ -19,6 +19,8 @@ import {
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
+const PAGE_SIZE = 20;
+
 const STATUS_TABS: { value: WithdrawalStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
   { value: 'completed', label: 'Completados' },
@@ -38,24 +40,33 @@ export default function AdminWithdrawalsScreen() {
 
   const [status, setStatus] = useState<WithdrawalStatus>('pending');
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  const fetchWithdrawals = useCallback((forStatus: WithdrawalStatus) => {
-    getAdminWithdrawals(forStatus)
+  const loadPage = useCallback((forStatus: WithdrawalStatus, pageToLoad: number) => {
+    getAdminWithdrawals(forStatus, pageToLoad, PAGE_SIZE)
       .then((result) => {
-        setWithdrawals(result);
+        setWithdrawals((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+        setTotal(result.total);
         setError(null);
       })
       .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      });
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      fetchWithdrawals(status);
-    }, [fetchWithdrawals, status]),
+      setIsLoading(true);
+      setPage(1);
+      loadPage(status, 1);
+    }, [loadPage, status]),
   );
 
   function handleStatusChange(nextStatus: WithdrawalStatus) {
@@ -63,6 +74,14 @@ export default function AdminWithdrawalsScreen() {
     setIsLoading(true);
     setWithdrawals([]);
     setStatus(nextStatus);
+  }
+
+  function handleEndReached() {
+    if (isLoadingMore || isLoading || withdrawals.length >= total) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    setPage(nextPage);
+    loadPage(status, nextPage);
   }
 
   function confirmResolve(withdrawal: AdminWithdrawalRow, nextStatus: 'completed' | 'rejected') {
@@ -88,6 +107,7 @@ export default function AdminWithdrawalsScreen() {
     try {
       await resolveWithdrawal(requestId, nextStatus);
       setWithdrawals((current) => current.filter((item) => item.id !== requestId));
+      setTotal((current) => current - 1);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -136,6 +156,15 @@ export default function AdminWithdrawalsScreen() {
           data={withdrawals}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.tint} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <Card style={styles.card}>
               <View style={[styles.cardHeader, styles.transparentBackground]}>
@@ -299,5 +328,8 @@ const styles = StyleSheet.create({
   completeText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
 });
