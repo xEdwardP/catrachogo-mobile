@@ -7,12 +7,14 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { GlobalErrorScreen } from '@/components/GlobalErrorScreen';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { DarkNavigationTheme, LightNavigationTheme } from '@/constants/NavigationTheme';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
 import { ThemeProvider as AppThemeProvider } from '@/lib/theme/ThemeContext';
 
-export { ErrorBoundary } from 'expo-router';
+export { GlobalErrorScreen as ErrorBoundary };
 
 SplashScreen.preventAutoHideAsync();
 
@@ -58,6 +60,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkNavigationTheme : LightNavigationTheme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <OfflineBanner />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="support" />
