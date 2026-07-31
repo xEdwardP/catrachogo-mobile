@@ -24,6 +24,7 @@ const TRIP_NOTIFICATION_TYPES = new Set([
   'trip_started',
   'trip_completed',
   'trip_cancelled',
+  'driver_arrived',
 ]);
 
 const NOTIFICATION_TYPE_ICONS: Record<
@@ -37,6 +38,7 @@ const NOTIFICATION_TYPE_ICONS: Record<
   withdrawal_resolved: { read: 'cash-outline', unread: 'cash' },
   driver_verification_updated: { read: 'shield-checkmark-outline', unread: 'shield-checkmark' },
   rating_received: { read: 'star-outline', unread: 'star' },
+  driver_arrived: { read: 'navigate-circle-outline', unread: 'navigate-circle' },
 };
 
 export default function NotificationsScreen() {

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type PropsWithChildren 
 
 import { apiClient } from '@/lib/api/client';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { unregisterPushToken } from '@/lib/api/notifications';
 import {
   clearSession,
   loadSession,
@@ -188,6 +189,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   async function logout() {
+    await unregisterPushToken().catch(() => {});
     await clearSession();
     setSession(null);
     setProfile(null);
