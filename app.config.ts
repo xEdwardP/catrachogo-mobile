@@ -59,6 +59,13 @@ const config: ExpoConfig = {
           'CatrachoGo usa tu ubicación para mostrar conductores cercanos y calcular la tarifa de tu viaje.',
       },
     ],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/logo/logo_without_text.png',
+        color: '#E8532E',
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

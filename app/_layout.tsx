@@ -12,6 +12,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { DarkNavigationTheme, LightNavigationTheme } from '@/constants/NavigationTheme';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
+import { usePushNotifications } from '@/lib/notifications/usePushNotifications';
 import { ThemeProvider as AppThemeProvider } from '@/lib/theme/ThemeContext';
 
 export { GlobalErrorScreen as ErrorBoundary };
@@ -46,6 +47,8 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, profile, isLoading } = useAuth();
   const hasCompleteProfile = Boolean(session) && Boolean(profile?.phone);
+
+  usePushNotifications();
 
   useEffect(() => {
     if (!isLoading) {

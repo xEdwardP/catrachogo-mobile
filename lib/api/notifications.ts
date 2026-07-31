@@ -8,7 +8,8 @@ export type NotificationType =
   | 'trip_cancelled'
   | 'withdrawal_resolved'
   | 'driver_verification_updated'
-  | 'rating_received';
+  | 'rating_received'
+  | 'driver_arrived';
 
 export type AppNotification = {
   id: string;
@@ -42,4 +43,12 @@ export async function markNotificationRead(id: string): Promise<void> {
 
 export async function markAllNotificationsRead(): Promise<void> {
   await apiClient.patch('/notifications/read-all');
+}
+
+export async function registerPushToken(token: string): Promise<void> {
+  await apiClient.post('/notifications/push-token', { token });
+}
+
+export async function unregisterPushToken(): Promise<void> {
+  await apiClient.delete('/notifications/push-token');
 }
