@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
+import { FullscreenMapViewer } from '@/components/FullscreenMapViewer';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
@@ -22,6 +24,7 @@ import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const RECENT_TRIPS_LIMIT = 5;
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
 
 const CARD_SHADOW = {
   shadowColor: '#000',
@@ -38,7 +41,9 @@ export default function DriverHomeScreen() {
   const fallbackLocation = useCurrentLocation();
   const [manualLocation, setManualLocation] = useState<LatLng | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const location = manualLocation ?? fallbackLocation.location;
+  const mapRef = useRef<MapView>(null);
 
   const [summary, setSummary] = useState<DriverSummary | null>(null);
   const [isAvailable, setIsAvailable] = useState(false);
@@ -129,7 +134,17 @@ export default function DriverHomeScreen() {
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setManualLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+      const next = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setManualLocation(next);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: next.lat,
+          longitude: next.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
     } catch {
     } finally {
       setIsLocating(false);
@@ -226,6 +241,7 @@ export default function DriverHomeScreen() {
       <View style={[styles.mapShadowWrapper, CARD_SHADOW]}>
         <View style={styles.mapWrapper}>
           <TripMap
+            ref={mapRef}
             style={styles.map}
             center={mapCenter}
             markers={location ? [{ position: location }] : []}
@@ -239,6 +255,12 @@ export default function DriverHomeScreen() {
             </View>
           )}
           <Pressable
+            style={[styles.expandButton, { backgroundColor: colors.background }]}
+            onPress={() => setIsMapExpanded(true)}
+          >
+            <Ionicons name="expand" size={16} color={colors.tint} />
+          </Pressable>
+          <Pressable
             style={[styles.locateButton, { backgroundColor: colors.background }]}
             onPress={handleLocateMe}
             disabled={isLocating}
@@ -251,6 +273,13 @@ export default function DriverHomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      <FullscreenMapViewer
+        visible={isMapExpanded}
+        onDismiss={() => setIsMapExpanded(false)}
+        center={mapCenter}
+        markers={location ? [{ position: location }] : []}
+      />
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ÚLTIMOS VIAJES</Text>
       {recentTrips.length === 0 ? (
@@ -408,6 +437,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expandButton: {
+    position: 'absolute',
+    top: 10,
+    right: 52,
     width: 34,
     height: 34,
     borderRadius: 17,
