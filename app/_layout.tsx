@@ -14,6 +14,7 @@ import { DarkNavigationTheme, LightNavigationTheme } from '@/constants/Navigatio
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
 import { usePushNotifications } from '@/lib/notifications/usePushNotifications';
 import { ThemeProvider as AppThemeProvider } from '@/lib/theme/ThemeContext';
+import { ToastProvider } from '@/lib/toast/ToastContext';
 
 export { GlobalErrorScreen as ErrorBoundary };
 
@@ -35,9 +36,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppThemeProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </ToastProvider>
       </AppThemeProvider>
     </GestureHandlerRootView>
   );

@@ -66,6 +66,7 @@ const config: ExpoConfig = {
         color: '#E8532E',
       },
     ],
+    '@react-native-google-signin/google-signin',
   ],
   experiments: {
     typedRoutes: true,

@@ -20,7 +20,7 @@ type Props = {
 const RECENTER_ZOOM_DELTA = 0.01;
 const RECENTER_THRESHOLD_DEGREES = 0.001;
 
-function mergeRefs<T>(...refs: Array<React.Ref<T> | null | undefined>) {
+function mergeRefs<T>(...refs: (React.Ref<T> | null | undefined)[]) {
   return (value: T | null) => {
     for (const ref of refs) {
       if (!ref) continue;

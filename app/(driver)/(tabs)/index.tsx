@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
 import { Text, View } from '@/components/Themed';
@@ -15,7 +16,7 @@ import { getDriverSummary, updateAvailability, type DriverSummary } from '@/lib/
 import { getPendingRequest } from '@/lib/api/drivers';
 import { getTripHistory, type Trip } from '@/lib/api/trips';
 import { sendDriverLocation } from '@/lib/api/tracking';
-import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
+import { useCurrentLocation, type LatLng } from '@/lib/location/useCurrentLocation';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
@@ -34,7 +35,10 @@ export default function DriverHomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const openDrawer = useOpenDrawer();
-  const { location } = useCurrentLocation();
+  const fallbackLocation = useCurrentLocation();
+  const [manualLocation, setManualLocation] = useState<LatLng | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const location = manualLocation ?? fallbackLocation.location;
 
   const [summary, setSummary] = useState<DriverSummary | null>(null);
   const [isAvailable, setIsAvailable] = useState(false);
@@ -114,6 +118,21 @@ export default function DriverHomeScreen() {
       }
     } finally {
       setIsTogglingAvailability(false);
+    }
+  }
+
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setManualLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+    } catch {
+    } finally {
+      setIsLocating(false);
     }
   }
 
@@ -219,6 +238,17 @@ export default function DriverHomeScreen() {
               </Text>
             </View>
           )}
+          <Pressable
+            style={[styles.locateButton, { backgroundColor: colors.background }]}
+            onPress={handleLocateMe}
+            disabled={isLocating}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.tint} />
+            ) : (
+              <Ionicons name="locate" size={18} color={colors.tint} />
+            )}
+          </Pressable>
         </View>
       </View>
 
@@ -373,6 +403,20 @@ const styles = StyleSheet.create({
   searchingBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyRow: {
     flexDirection: 'row',

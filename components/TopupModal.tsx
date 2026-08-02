@@ -1,12 +1,13 @@
 import * as Linking from 'expo-linking';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { Text, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { confirmTopup, createTopupOrder } from '@/lib/api/wallet';
+import { useToast } from '@/lib/toast/ToastContext';
 
 type Props = {
   visible: boolean;
@@ -17,6 +18,7 @@ type Props = {
 export function TopupModal({ visible, onDismiss, onSuccess }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { showToast } = useToast();
 
   const [amount, setAmount] = useState('200');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,9 +63,12 @@ export function TopupModal({ visible, onDismiss, onSuccess }: Props) {
       }
 
       const confirmResult = await confirmTopup(orderId);
-      Alert.alert('Recarga exitosa', `Se agregaron L. ${parsedAmount.toFixed(2)} a tu wallet.`, [
-        { text: 'OK', onPress: () => onSuccess(confirmResult.balance) },
-      ]);
+      showToast({
+        type: 'success',
+        title: 'Recarga exitosa',
+        message: `Se agregaron L. ${parsedAmount.toFixed(2)} a tu wallet.`,
+      });
+      onSuccess(confirmResult.balance);
     } catch {
       setError('No se pudo confirmar el pago con PayPal. Si el cargo se realizó, contáctanos.');
     } finally {

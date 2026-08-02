@@ -3,7 +3,7 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 
 import { PlaceAutocompleteInput } from '@/components/PlaceAutocompleteInput';
 import { Text, View } from '@/components/Themed';
@@ -17,6 +17,7 @@ import { createTrip, estimateFare, type FareEstimate } from '@/lib/api/trips';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
 import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
 import { reverseGeocodeAddress } from '@/lib/location/reverseGeocode';
+import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
 
@@ -31,6 +32,7 @@ export default function RequestTripScreen() {
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { showToast } = useToast();
 
   const hasOriginParams = Boolean(params.originLat && params.originLng);
   const [origin, setOrigin] = useState<LatLng | null>(
@@ -129,7 +131,11 @@ export default function RequestTripScreen() {
         params: { tripId: trip.id, destinationAddress },
       });
     } catch (error) {
-      Alert.alert('No se pudo solicitar el viaje', getApiErrorMessage(error));
+      showToast({
+        type: 'error',
+        title: 'No se pudo solicitar el viaje',
+        message: getApiErrorMessage(error),
+      });
       setIsRequesting(false);
     }
   }
@@ -139,10 +145,11 @@ export default function RequestTripScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Ubicación no disponible',
-          'Necesitamos acceso a tu ubicación. Actívalo en los ajustes del teléfono.',
-        );
+        showToast({
+          type: 'info',
+          title: 'Ubicación no disponible',
+          message: 'Necesitamos acceso a tu ubicación. Actívalo en los ajustes del teléfono.',
+        });
         return;
       }
       const position = await Location.getCurrentPositionAsync({
@@ -153,7 +160,11 @@ export default function RequestTripScreen() {
       const address = await reverseGeocodeAddress(location);
       setOriginAddress(address || 'Mi ubicación actual');
     } catch {
-      Alert.alert('No se pudo obtener tu ubicación', 'Intenta de nuevo en un momento.');
+      showToast({
+        type: 'error',
+        title: 'No se pudo obtener tu ubicación',
+        message: 'Intenta de nuevo en un momento.',
+      });
     } finally {
       setIsLocating(false);
     }

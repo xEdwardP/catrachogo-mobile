@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import {
@@ -25,23 +26,12 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
 
   const [isResolving, setIsResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   function handleDismiss() {
     if (isResolving) return;
     setError(null);
     onDismiss();
-  }
-
-  function confirmMarkReviewed() {
-    if (!report) return;
-    Alert.alert(
-      '¿Marcar como revisado?',
-      'El reporte se moverá a la lista de revisados. Esta acción no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Marcar revisado', onPress: resolve },
-      ],
-    );
   }
 
   async function resolve() {
@@ -50,6 +40,7 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
     setError(null);
     try {
       await onMarkReviewed(report.id);
+      setShowConfirm(false);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -133,7 +124,7 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
 
               {report.status === 'pending' ? (
                 <Button
-                  onPress={confirmMarkReviewed}
+                  onPress={() => setShowConfirm(true)}
                   loading={isResolving}
                   style={{ backgroundColor: colors.success }}
                 >
@@ -154,6 +145,16 @@ export function IncidentReportDetailModal({ report, onDismiss, onMarkReviewed }:
           )}
         </View>
       </View>
+
+      <ConfirmDialog
+        visible={showConfirm}
+        title="¿Marcar como revisado?"
+        message="El reporte se moverá a la lista de revisados. Esta acción no se puede deshacer."
+        confirmText="Marcar revisado"
+        isSubmitting={isResolving}
+        onConfirm={resolve}
+        onDismiss={() => setShowConfirm(false)}
+      />
     </Modal>
   );
 }

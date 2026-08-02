@@ -16,6 +16,7 @@ import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -42,7 +43,8 @@ type Props = {
 export function ProfileScreen({ onMenuPress }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const { profile, updateName, completePhone, updateProfilePhoto, logout } = useAuth();
+  const { profile, updateName, completePhone, updateProfilePhoto, updatePassword, logout } =
+    useAuth();
   const { preference, setPreference } = useThemePreference();
 
   const [name, setName] = useState(profile?.name ?? '');
@@ -51,7 +53,14 @@ export function ProfileScreen({ onMenuPress }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { isUploading, promptForImage } = useImageUpload(handlePhotoUploaded);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  const { isUploading, promptForImage, picker } = useImageUpload(handlePhotoUploaded);
 
   async function handlePhotoUploaded(url: string) {
     setError(null);
@@ -100,6 +109,35 @@ export function ProfileScreen({ onMenuPress }: Props) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el perfil.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (newPassword.length < 8) {
+      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Las contraseñas nuevas no coinciden.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await updatePassword(currentPassword, newPassword);
+      setPasswordSuccess('Contraseña actualizada.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err) {
+      setPasswordError(
+        err instanceof Error ? err.message : 'No se pudo cambiar la contraseña. Intenta de nuevo.',
+      );
+    } finally {
+      setIsChangingPassword(false);
     }
   }
 
@@ -217,6 +255,80 @@ export function ProfileScreen({ onMenuPress }: Props) {
           </View>
         </Button>
 
+        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>CONTRASEÑA</Text>
+        <Card style={styles.card}>
+          <View style={[styles.fieldLabelRow, styles.transparentBackground]}>
+            <Ionicons name="lock-closed-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              CONTRASEÑA ACTUAL
+            </Text>
+          </View>
+          <TextField
+            isPassword
+            placeholder="Tu contraseña actual"
+            value={currentPassword}
+            onChangeText={setCurrentPassword}
+            editable={!isChangingPassword}
+          />
+
+          <View
+            style={[styles.fieldLabelRow, styles.fieldLabelSpaced, styles.transparentBackground]}
+          >
+            <Ionicons name="key-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              NUEVA CONTRASEÑA
+            </Text>
+          </View>
+          <TextField
+            isPassword
+            placeholder="Mínimo 8 caracteres"
+            value={newPassword}
+            onChangeText={setNewPassword}
+            editable={!isChangingPassword}
+          />
+
+          <View
+            style={[styles.fieldLabelRow, styles.fieldLabelSpaced, styles.transparentBackground]}
+          >
+            <Ionicons name="key-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              CONFIRMAR NUEVA CONTRASEÑA
+            </Text>
+          </View>
+          <TextField
+            isPassword
+            placeholder="Repite la nueva contraseña"
+            value={confirmNewPassword}
+            onChangeText={setConfirmNewPassword}
+            editable={!isChangingPassword}
+          />
+
+          {passwordError && (
+            <View style={[styles.noticeRow, styles.transparentBackground]}>
+              <Ionicons name="alert-circle" size={14} color="#C0392B" />
+              <Text style={styles.error}>{passwordError}</Text>
+            </View>
+          )}
+          {passwordSuccess && (
+            <View style={[styles.noticeRow, styles.transparentBackground]}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={[styles.success, { color: colors.success }]}>{passwordSuccess}</Text>
+            </View>
+          )}
+
+          <Button
+            onPress={handleChangePassword}
+            loading={isChangingPassword}
+            disabled={!currentPassword || !newPassword || !confirmNewPassword || isChangingPassword}
+            style={styles.saveButton}
+          >
+            <View style={[styles.buttonRow, styles.transparentBackground]}>
+              <Ionicons name="lock-closed-outline" size={18} color="#fff" />
+              <Text style={styles.primaryButtonText}>Cambiar contraseña</Text>
+            </View>
+          </Button>
+        </Card>
+
         <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>APARIENCIA</Text>
         <Card style={styles.themeCard}>
           <View style={[styles.themeRow, styles.transparentBackground]}>
@@ -274,6 +386,7 @@ export function ProfileScreen({ onMenuPress }: Props) {
           </View>
         </Button>
       </ScrollView>
+      {picker}
     </KeyboardAvoidingView>
   );
 }

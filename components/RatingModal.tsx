@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { Typography } from '@/constants/Typography';
 import { createRating } from '@/lib/api/ratings';
+import { useToast } from '@/lib/toast/ToastContext';
 
 type Props = {
   visible: boolean;
@@ -22,6 +23,7 @@ type Props = {
 export function RatingModal({ visible, tripId, ratedId, ratedName, onDone }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { showToast } = useToast();
   const [score, setScore] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,11 +33,14 @@ export function RatingModal({ visible, tripId, ratedId, ratedName, onDone }: Pro
     setIsSubmitting(true);
     try {
       await createRating({ tripId, ratedId, score, comment: comment.trim() || undefined });
-      Alert.alert('¡Gracias!', 'Tu calificación se envió correctamente.', [
-        { text: 'OK', onPress: onDone },
-      ]);
+      showToast({ type: 'success', title: '¡Gracias!', message: 'Tu calificación se envió correctamente.' });
+      onDone();
     } catch {
-      Alert.alert('No se pudo enviar tu calificación', 'Intenta de nuevo.');
+      showToast({
+        type: 'error',
+        title: 'No se pudo enviar tu calificación',
+        message: 'Intenta de nuevo.',
+      });
     } finally {
       setIsSubmitting(false);
     }

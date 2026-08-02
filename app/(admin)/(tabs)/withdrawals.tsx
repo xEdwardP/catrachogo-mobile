@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
 import { TextField } from '@/components/ui/TextField';
@@ -48,6 +49,10 @@ export default function AdminWithdrawalsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [pendingResolve, setPendingResolve] = useState<{
+    withdrawal: AdminWithdrawalRow;
+    nextStatus: 'completed' | 'rejected';
+  } | null>(null);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 400);
 
@@ -92,30 +97,15 @@ export default function AdminWithdrawalsScreen() {
     loadPage(status, nextPage, debouncedSearch);
   }
 
-  function confirmResolve(withdrawal: AdminWithdrawalRow, nextStatus: 'completed' | 'rejected') {
-    const isCompleting = nextStatus === 'completed';
-    Alert.alert(
-      isCompleting ? '¿Marcar como completado?' : '¿Rechazar retiro?',
-      isCompleting
-        ? `Confirma que ya transferiste L. ${withdrawal.amount.toFixed(2)} a ${withdrawal.paypalEmail} por fuera de la app. Esta acción no se puede deshacer.`
-        : `El monto de L. ${withdrawal.amount.toFixed(2)} volverá al saldo de ${withdrawal.driver.user.name}.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: isCompleting ? 'Marcar completado' : 'Rechazar',
-          style: isCompleting ? 'default' : 'destructive',
-          onPress: () => resolve(withdrawal.id, nextStatus),
-        },
-      ],
-    );
-  }
-
-  async function resolve(requestId: string, nextStatus: 'completed' | 'rejected') {
-    setResolvingId(requestId);
+  async function resolve() {
+    if (!pendingResolve) return;
+    const { withdrawal, nextStatus } = pendingResolve;
+    setResolvingId(withdrawal.id);
     try {
-      await resolveWithdrawal(requestId, nextStatus);
-      setWithdrawals((current) => current.filter((item) => item.id !== requestId));
+      await resolveWithdrawal(withdrawal.id, nextStatus);
+      setWithdrawals((current) => current.filter((item) => item.id !== withdrawal.id));
       setTotal((current) => current - 1);
+      setPendingResolve(null);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -212,7 +202,7 @@ export default function AdminWithdrawalsScreen() {
                 <View style={[styles.actionsRow, styles.transparentBackground]}>
                   <Button
                     variant="secondary"
-                    onPress={() => confirmResolve(item, 'rejected')}
+                    onPress={() => setPendingResolve({ withdrawal: item, nextStatus: 'rejected' })}
                     disabled={resolvingId === item.id}
                     style={styles.actionButton}
                   >
@@ -222,7 +212,7 @@ export default function AdminWithdrawalsScreen() {
                     </View>
                   </Button>
                   <Button
-                    onPress={() => confirmResolve(item, 'completed')}
+                    onPress={() => setPendingResolve({ withdrawal: item, nextStatus: 'completed' })}
                     loading={resolvingId === item.id}
                     disabled={resolvingId === item.id}
                     style={[styles.actionButton, { backgroundColor: colors.success }]}
@@ -238,6 +228,23 @@ export default function AdminWithdrawalsScreen() {
           )}
         />
       )}
+
+      <ConfirmDialog
+        visible={pendingResolve !== null}
+        title={pendingResolve?.nextStatus === 'completed' ? '¿Marcar como completado?' : '¿Rechazar retiro?'}
+        message={
+          pendingResolve
+            ? pendingResolve.nextStatus === 'completed'
+              ? `Confirma que ya transferiste L. ${pendingResolve.withdrawal.amount.toFixed(2)} a ${pendingResolve.withdrawal.paypalEmail} por fuera de la app. Esta acción no se puede deshacer.`
+              : `El monto de L. ${pendingResolve.withdrawal.amount.toFixed(2)} volverá al saldo de ${pendingResolve.withdrawal.driver.user.name}.`
+            : ''
+        }
+        confirmText={pendingResolve?.nextStatus === 'completed' ? 'Marcar completado' : 'Rechazar'}
+        isDestructive={pendingResolve?.nextStatus === 'rejected'}
+        isSubmitting={resolvingId === pendingResolve?.withdrawal.id}
+        onConfirm={resolve}
+        onDismiss={() => setPendingResolve(null)}
+      />
     </View>
   );
 }

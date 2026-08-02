@@ -11,3 +11,14 @@ export function distanceMeters(a: LatLng, b: LatLng): number {
 }
 
 export const ARRIVAL_RADIUS_METERS = 150;
+
+export function isPlausibleMovement(
+  previous: LatLng & { timestampMs: number },
+  next: LatLng & { timestampMs: number },
+  maxSpeedKmh = 140,
+): boolean {
+  const elapsedHours = (next.timestampMs - previous.timestampMs) / 3_600_000;
+  if (elapsedHours <= 0) return true;
+  const impliedSpeedKmh = distanceMeters(previous, next) / 1000 / elapsedHours;
+  return impliedSpeedKmh <= maxSpeedKmh;
+}

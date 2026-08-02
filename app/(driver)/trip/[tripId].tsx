@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
 
 import { ReportNoShowModal } from '@/components/ReportNoShowModal';
 import { Text, View } from '@/components/Themed';
@@ -23,10 +23,20 @@ import {
 } from '@/lib/api/trips';
 import { sendDriverLocation } from '@/lib/api/tracking';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
-import { ARRIVAL_RADIUS_METERS, distanceMeters } from '@/lib/geo/distance';
+import { ARRIVAL_RADIUS_METERS, distanceMeters, isPlausibleMovement } from '@/lib/geo/distance';
 import { usePolling } from '@/lib/hooks/usePolling';
+import { useSmoothedPosition } from '@/lib/hooks/useSmoothedPosition';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const DEMO_MODE_ENABLED = process.env.EXPO_PUBLIC_ENABLE_DEMO_MODE === 'true';
+const SIMULATION_STEP_MS = 350;
+const SIMULATION_MAX_STEPS = 24;
+
+function resamplePath(path: LatLng[], maxPoints: number): LatLng[] {
+  if (path.length <= maxPoints) return path;
+  const step = (path.length - 1) / (maxPoints - 1);
+  return Array.from({ length: maxPoints }, (_, i) => path[Math.round(i * step)]);
+}
 
 const STATUS_BANNER: Record<TripStatus, string> = {
   pending: 'Cargando...',
@@ -69,6 +79,17 @@ export default function DriverTripScreen() {
   const [showNoShowModal, setShowNoShowModal] = useState(false);
   const [isReportingNoShow, setIsReportingNoShow] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [isLocating, setIsLocating] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [animatingPosition, setAnimatingPosition] = useState<LatLng | null>(null);
+  const lastPositionRef = useRef<(LatLng & { timestampMs: number }) | null>(null);
+  const simulationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+    };
+  }, []);
 
   usePolling(
     () => {
@@ -90,14 +111,27 @@ export default function DriverTripScreen() {
       if (!tripId) return;
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
         .then((position) => {
-          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setDriverPosition(coords);
-          sendDriverLocation(coords.lat, coords.lng, tripId).catch(() => {});
+          const next = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            timestampMs: Date.now(),
+          };
+          const last = lastPositionRef.current;
+          if (last && !isPlausibleMovement(last, next)) return;
+          lastPositionRef.current = next;
+          setDriverPosition({ lat: next.lat, lng: next.lng });
+          sendDriverLocation(next.lat, next.lng, tripId).catch(() => {});
         })
         .catch(() => {});
     },
     5000,
-    Boolean(tripId) && isOnTrip,
+    Boolean(tripId) && isOnTrip && !isSimulating,
+  );
+
+  const rawDisplayPosition = animatingPosition ?? driverPosition;
+  const smoothedDriverPosition = useSmoothedPosition(
+    rawDisplayPosition,
+    animatingPosition ? SIMULATION_STEP_MS : 3000,
   );
 
   useEffect(() => {
@@ -201,6 +235,56 @@ export default function DriverTripScreen() {
     }
   }
 
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const next = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        timestampMs: Date.now(),
+      };
+      lastPositionRef.current = next;
+      setDriverPosition({ lat: next.lat, lng: next.lng });
+      if (tripId) sendDriverLocation(next.lat, next.lng, tripId).catch(() => {});
+    } catch {
+    } finally {
+      setIsLocating(false);
+    }
+  }
+
+  function handleSimulateArrival() {
+    if (!routeTarget) return;
+    if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+
+    const fullPath = routePath.length > 1 ? routePath : [driverPosition ?? routeTarget, routeTarget];
+    const steps = resamplePath(fullPath, SIMULATION_MAX_STEPS).slice(1);
+    if (steps.length === 0) steps.push(routeTarget);
+
+    setIsSimulating(true);
+    let index = 0;
+
+    simulationTimerRef.current = setInterval(() => {
+      const point = steps[index];
+      setAnimatingPosition(point);
+      sendDriverLocation(point.lat, point.lng, tripId).catch(() => {});
+      index += 1;
+
+      if (index >= steps.length) {
+        if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+        simulationTimerRef.current = null;
+        lastPositionRef.current = { ...routeTarget, timestampMs: Date.now() };
+        setAnimatingPosition(null);
+        setDriverPosition(routeTarget);
+        setIsSimulating(false);
+      }
+    }, SIMULATION_STEP_MS);
+  }
+
   async function handleReportNoShow() {
     setIsReportingNoShow(true);
     try {
@@ -232,9 +316,9 @@ export default function DriverTripScreen() {
     Math.floor((remainingMs % 60000) / 1000),
   ).padStart(2, '0')}`;
 
-  const mapCenter = driverPosition ?? routeTarget ?? DEFAULT_CENTER;
+  const mapCenter = rawDisplayPosition ?? routeTarget ?? DEFAULT_CENTER;
   const markers: TripMapMarker[] = [];
-  if (driverPosition) markers.push({ position: driverPosition, color: colors.tint });
+  if (smoothedDriverPosition) markers.push({ position: smoothedDriverPosition, color: colors.tint });
   if (routeTarget) markers.push({ position: routeTarget });
 
   return (
@@ -260,6 +344,18 @@ export default function DriverTripScreen() {
           </Text>
         </View>
       </View>
+
+      <Pressable
+        style={[styles.locateButton, { backgroundColor: colors.background }]}
+        onPress={handleLocateMe}
+        disabled={isLocating || isSimulating}
+      >
+        {isLocating ? (
+          <ActivityIndicator size="small" color={colors.tint} />
+        ) : (
+          <Ionicons name="locate" size={20} color={colors.tint} />
+        )}
+      </Pressable>
 
       <View style={[styles.sheet, { backgroundColor: colors.background }, SHEET_SHADOW]}>
         {(isPickupPhase || isTripPhase) && (
@@ -358,6 +454,19 @@ export default function DriverTripScreen() {
           )}
         </View>
 
+        {DEMO_MODE_ENABLED && isOnTrip && !isNearTarget && (
+          <Pressable
+            style={styles.simulateButton}
+            onPress={handleSimulateArrival}
+            disabled={isSimulating}
+          >
+            <Ionicons name="navigate-circle-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.simulateButtonText, { color: colors.textSecondary }]}>
+              {isSimulating ? 'Simulando...' : 'Simular llegada (demo)'}
+            </Text>
+          </Pressable>
+        )}
+
         {isPickupPhase && !trip?.arrivedAt && !isNearTarget && (
           <View style={[styles.hintRow, styles.transparentBackground]}>
             <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
@@ -428,6 +537,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 110,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sheet: {
     position: 'absolute',
@@ -506,6 +629,18 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  simulateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  simulateButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   actionButton: {
     flex: 1,
