@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { TripDetailModal } from '@/components/TripDetailModal';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -37,6 +38,7 @@ export function TripHistoryList({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailTrip, setDetailTrip] = useState<Trip | null>(null);
 
   const loadPage = useCallback((pageToLoad: number) => {
     getTripHistory(pageToLoad, PAGE_SIZE)
@@ -105,8 +107,7 @@ export function TripHistoryList({
               <Card style={styles.card}>
                 <Pressable
                   style={styles.cardMain}
-                  onPress={() => onPressTrip(item)}
-                  disabled={!trackable}
+                  onPress={() => (trackable ? onPressTrip(item) : setDetailTrip(item))}
                 >
                   <View style={[styles.cardHeader, styles.transparentBackground]}>
                     <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
@@ -141,6 +142,8 @@ export function TripHistoryList({
           }}
         />
       )}
+
+      <TripDetailModal trip={detailTrip} onDismiss={() => setDetailTrip(null)} />
     </View>
   );
 }

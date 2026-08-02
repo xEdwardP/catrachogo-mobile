@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
 import { PlaceAutocompleteInput } from '@/components/PlaceAutocompleteInput';
 import { Text, View } from '@/components/Themed';
@@ -20,6 +21,7 @@ import { reverseGeocodeAddress } from '@/lib/location/reverseGeocode';
 import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
 
 export default function RequestTripScreen() {
   const params = useLocalSearchParams<{
@@ -43,6 +45,7 @@ export default function RequestTripScreen() {
   );
 
   const [isLocating, setIsLocating] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   const fallbackLocation = useCurrentLocation();
   useEffect(() => {
@@ -157,6 +160,15 @@ export default function RequestTripScreen() {
       });
       const location: LatLng = { lat: position.coords.latitude, lng: position.coords.longitude };
       setOrigin(location);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: location.lat,
+          longitude: location.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
       const address = await reverseGeocodeAddress(location);
       setOriginAddress(address || 'Mi ubicación actual');
     } catch {
@@ -175,6 +187,7 @@ export default function RequestTripScreen() {
   return (
     <View style={styles.container}>
       <TripMap
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         center={mapCenter}
         markers={[

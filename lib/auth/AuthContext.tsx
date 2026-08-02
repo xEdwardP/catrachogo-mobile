@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
 import { apiClient } from '@/lib/api/client';
@@ -113,6 +114,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const fetchedProfile = await fetchProfile();
       setSession(stored);
       setProfile(fetchedProfile);
+      router.dismissAll();
+      router.replace('/');
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
@@ -131,6 +134,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const fetchedProfile = await fetchProfile();
       setSession(stored);
       setProfile(fetchedProfile);
+      router.dismissAll();
+      router.replace('/');
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
@@ -149,6 +154,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const fetchedProfile = await fetchProfile();
       setSession(stored);
       setProfile(fetchedProfile);
+      router.dismissAll();
+      router.replace('/');
     } catch (error) {
       throw new Error(getApiErrorMessage(error));
     }
@@ -202,6 +209,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await clearSession();
     setSession(null);
     setProfile(null);
+    router.dismissAll();
+    router.replace('/(auth)/login');
   }
 
   return (

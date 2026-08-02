@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
+import { MapLocationPickerModal } from '@/components/MapLocationPickerModal';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
 import { SaveFavoriteAddressModal } from '@/components/SaveFavoriteAddressModal';
@@ -23,11 +26,12 @@ import {
   type SavedAddress,
 } from '@/lib/api/savedAddresses';
 import { getTripHistory } from '@/lib/api/trips';
-import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
+import { useCurrentLocation, type LatLng } from '@/lib/location/useCurrentLocation';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
 const RECENT_DESTINATIONS_LIMIT = 5;
 const TRIP_HISTORY_SAMPLE_SIZE = 20;
 
@@ -44,7 +48,13 @@ export default function PassengerHomeScreen() {
   const colors = Colors[colorScheme];
   const openDrawer = useOpenDrawer();
   const { showToast } = useToast();
-  const { location, isLoading, error } = useCurrentLocation();
+  const fallbackLocation = useCurrentLocation();
+  const [manualLocation, setManualLocation] = useState<LatLng | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const location = manualLocation ?? fallbackLocation.location;
+  const { isLoading, error } = fallbackLocation;
+  const mapRef = useRef<MapView>(null);
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
   const [destinationText, setDestinationText] = useState('');
 
   const [favorites, setFavorites] = useState<SavedAddress[]>([]);
@@ -105,6 +115,31 @@ export default function PassengerHomeScreen() {
     },
     [location],
   );
+
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const next = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setManualLocation(next);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: next.lat,
+          longitude: next.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
+    } catch {
+    } finally {
+      setIsLocating(false);
+    }
+  }
 
   function handleSelectDestination(place: PlaceSelection) {
     setDestinationText(place.address);
@@ -191,6 +226,7 @@ export default function PassengerHomeScreen() {
           ) : (
             <>
               <TripMap
+                ref={mapRef}
                 style={styles.map}
                 center={mapCenter}
                 markers={location ? [{ position: location }] : []}
@@ -201,10 +237,37 @@ export default function PassengerHomeScreen() {
                   <Text style={styles.mapBadgeText}>Tu ubicación</Text>
                 </View>
               )}
+              <Pressable
+                style={[styles.expandButton, { backgroundColor: colors.background }]}
+                onPress={() => setIsPickerVisible(true)}
+              >
+                <Ionicons name="expand" size={16} color={colors.tint} />
+              </Pressable>
+              <Pressable
+                style={[styles.locateButton, { backgroundColor: colors.background }]}
+                onPress={handleLocateMe}
+                disabled={isLocating}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color={colors.tint} />
+                ) : (
+                  <Ionicons name="locate" size={18} color={colors.tint} />
+                )}
+              </Pressable>
             </>
           )}
         </View>
       </View>
+
+      <MapLocationPickerModal
+        visible={isPickerVisible}
+        initialCenter={mapCenter}
+        onDismiss={() => setIsPickerVisible(false)}
+        onSelect={(place) => {
+          setIsPickerVisible(false);
+          goToRequestTrip(place);
+        }}
+      />
 
       {error && (
         <View style={[styles.noticeRow, styles.transparentBackground]}>
@@ -469,5 +532,33 @@ const styles = StyleSheet.create({
   mapBadgeText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expandButton: {
+    position: 'absolute',
+    top: 10,
+    right: 52,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

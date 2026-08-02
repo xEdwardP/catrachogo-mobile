@@ -30,6 +30,7 @@ import { usePolling } from '@/lib/hooks/usePolling';
 import { useSmoothedPosition } from '@/lib/hooks/useSmoothedPosition';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const SEARCH_TIMEOUT_MS = 60_000;
 
 const STATUS_BANNER: Record<TripStatus, string> = {
   pending: 'Buscando un conductor cercano...',
@@ -79,6 +80,9 @@ export default function TripInProgressScreen() {
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSent, setReportSent] = useState(false);
   const fetchedDriverIdRef = useRef<string | null>(null);
+  const searchStartRef = useRef(Date.now());
+  const autoCancelTriggeredRef = useRef(false);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   usePolling(
     () => {
@@ -116,6 +120,28 @@ export default function TripInProgressScreen() {
   );
 
   const smoothedDriverPosition = useSmoothedPosition(driverPosition, 3000);
+
+  const isSearching = trip?.status === 'pending';
+  useEffect(() => {
+    if (!isSearching) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isSearching]);
+
+  const searchElapsedMs = nowTick - searchStartRef.current;
+  const searchRemainingSeconds = Math.max(
+    0,
+    Math.ceil((SEARCH_TIMEOUT_MS - searchElapsedMs) / 1000),
+  );
+
+  useEffect(() => {
+    if (!isSearching || !tripId || autoCancelTriggeredRef.current) return;
+    if (searchElapsedMs < SEARCH_TIMEOUT_MS) return;
+    autoCancelTriggeredRef.current = true;
+    cancelTrip(tripId, 'took_too_long')
+      .catch(() => {})
+      .finally(() => router.replace('/(passenger)/(tabs)'));
+  }, [isSearching, searchElapsedMs, tripId]);
 
   const isHeadingToPickup = trip?.status === 'accepted';
   const routeTarget: LatLng | null = trip
@@ -280,6 +306,15 @@ export default function TripInProgressScreen() {
                 </View>
               )}
             </View>
+
+            {isSearching && (
+              <View style={[styles.noticeRow, styles.transparentBackground]}>
+                <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
+                <Text style={[styles.searchingText, { color: colors.textSecondary }]}>
+                  Cancelaremos la búsqueda en {searchRemainingSeconds}s si no hay respuesta.
+                </Text>
+              </View>
+            )}
 
             <View style={[styles.labelRow, styles.transparentBackground]}>
               <Ionicons name="flag-outline" size={12} color={colors.textSecondary} />
@@ -509,6 +544,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 12,
+  },
+  searchingText: {
+    fontSize: 12,
+    flex: 1,
   },
   errorText: {
     fontSize: 12,
