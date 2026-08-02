@@ -105,9 +105,10 @@ export async function getAdminDrivers(
   status: VerificationStatus,
   page: number,
   limit: number,
+  search?: string,
 ): Promise<PaginatedResult<AdminDriverRow>> {
   const { data } = await apiClient.get<PaginatedResult<AdminDriverRow>>('/admin/drivers', {
-    params: { status, page, limit },
+    params: { status, page, limit, search: search || undefined },
   });
   return data;
 }
@@ -158,9 +159,10 @@ export async function getAdminWithdrawals(
   status: WithdrawalStatus,
   page: number,
   limit: number,
+  search?: string,
 ): Promise<PaginatedResult<AdminWithdrawalRow>> {
   const { data } = await apiClient.get<PaginatedResult<AdminWithdrawalRow>>('/admin/withdrawals', {
-    params: { status, page, limit },
+    params: { status, page, limit, search: search || undefined },
   });
   return data;
 }

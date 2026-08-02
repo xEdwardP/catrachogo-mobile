@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { CloudinaryImagePicker } from '@/components/CloudinaryImagePicker';
 import { Text, View } from '@/components/Themed';
@@ -17,8 +17,10 @@ import {
 } from '@/constants/VehicleTypeLabels';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { completeDriverProfile, type VehicleType } from '@/lib/api/drivers';
+import { useToast } from '@/lib/toast/ToastContext';
 
 export default function DriverCompleteProfileScreen() {
+  const { showToast } = useToast();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
@@ -69,7 +71,11 @@ export default function DriverCompleteProfileScreen() {
       });
       router.replace('/(driver)/(tabs)');
     } catch (error) {
-      Alert.alert('No se pudo completar tu perfil', getApiErrorMessage(error));
+      showToast({
+        type: 'error',
+        title: 'No se pudo completar tu perfil',
+        message: getApiErrorMessage(error),
+      });
     } finally {
       setIsSubmitting(false);
     }

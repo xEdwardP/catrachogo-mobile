@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
 import { apiClient } from '@/lib/api/client';
-import { getApiErrorMessage } from '@/lib/api/errors';
+import { getApiErrorMessage, translatePasswordUpdateError } from '@/lib/api/errors';
 import { unregisterPushToken } from '@/lib/api/notifications';
 import {
   clearSession,
@@ -57,6 +57,7 @@ type AuthContextValue = {
   completePhone: (phone: string) => Promise<void>;
   updateName: (name: string) => Promise<void>;
   updateProfilePhoto: (profilePhotoUrl: string) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -188,6 +189,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }
 
+  async function updatePassword(currentPassword: string, newPassword: string) {
+    try {
+      await apiClient.patch('/auth/password', { currentPassword, newPassword });
+    } catch (error) {
+      throw new Error(translatePasswordUpdateError(error));
+    }
+  }
+
   async function logout() {
     await unregisterPushToken().catch(() => {});
     await clearSession();
@@ -207,6 +216,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         completePhone,
         updateName,
         updateProfilePhoto,
+        updatePassword,
         logout,
       }}
     >

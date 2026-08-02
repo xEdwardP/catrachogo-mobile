@@ -27,6 +27,7 @@ import {
 } from '@/lib/api/trips';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
 import { usePolling } from '@/lib/hooks/usePolling';
+import { useSmoothedPosition } from '@/lib/hooks/useSmoothedPosition';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
 
@@ -113,6 +114,8 @@ export default function TripInProgressScreen() {
     4000,
     Boolean(tripId) && isTrackable,
   );
+
+  const smoothedDriverPosition = useSmoothedPosition(driverPosition, 3000);
 
   const isHeadingToPickup = trip?.status === 'accepted';
   const routeTarget: LatLng | null = trip
@@ -223,7 +226,7 @@ export default function TripInProgressScreen() {
   const mapCenter =
     driverPosition ?? (trip ? { lat: trip.originLat, lng: trip.originLng } : DEFAULT_CENTER);
   const markers: TripMapMarker[] = [];
-  if (driverPosition) markers.push({ position: driverPosition, color: colors.tint });
+  if (smoothedDriverPosition) markers.push({ position: smoothedDriverPosition, color: colors.tint });
   if (routeTarget) markers.push({ position: routeTarget });
 
   return (

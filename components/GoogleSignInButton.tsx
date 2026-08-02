@@ -1,31 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as AuthSession from 'expo-auth-session';
+import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
-// Google rechaza cualquier client ID tipo "Web application" (sin importar el
-// response_type) para un redirect que no sea http(s) — confirmado en vivo
-// probando en Expo Go ("Acceso bloqueado: Error de autorización", Error 400:
-// invalid_request). Hace falta un client ID tipo Android/iOS por plataforma,
-// que sí soportan el esquema custom nativo. En Android/iOS el botón no se
-// renderiza hasta que exista el client ID específico de esa plataforma —
-// mostrarlo con el client ID "web" solo repetiría el mismo error.
-const discovery = {
-  authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-  tokenEndpoint: 'https://oauth2.googleapis.com/token',
-};
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
-const GOOGLE_CLIENT_ID = Platform.select({
-  android: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
-  ios: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
-  default: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-});
-const REDIRECT_URI = AuthSession.makeRedirectUri({ scheme: 'catrachogomobile' });
+if (WEB_CLIENT_ID) {
+  GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
+}
 
 type Props = {
   onSuccess: (idToken: string) => void;
@@ -37,46 +24,25 @@ export function GoogleSignInButton({ onSuccess, onError }: Props) {
   const colors = Colors[colorScheme];
   const [isRequesting, setIsRequesting] = useState(false);
 
-  const [request, , promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CLIENT_ID ?? '',
-      redirectUri: REDIRECT_URI,
-      responseType: AuthSession.ResponseType.Code,
-      scopes: ['openid', 'profile', 'email'],
-      usePKCE: true,
-    },
-    discovery,
-  );
-
-  if (!GOOGLE_CLIENT_ID) {
+  if (!WEB_CLIENT_ID) {
     return null;
   }
 
   async function handlePress() {
     setIsRequesting(true);
     try {
-      const result = await promptAsync();
-      if (result.type !== 'success') {
-        if (result.type === 'error') onError();
-        return;
-      }
-
-      const tokenResult = await AuthSession.exchangeCodeAsync(
-        {
-          clientId: GOOGLE_CLIENT_ID ?? '',
-          code: result.params.code,
-          redirectUri: REDIRECT_URI,
-          extraParams: { code_verifier: request?.codeVerifier ?? '' },
-        },
-        discovery,
-      );
-
-      if (tokenResult.idToken) {
-        onSuccess(tokenResult.idToken);
+      await GoogleSignin.hasPlayServices();
+      await GoogleSignin.signOut().catch(() => {});
+      const response = await GoogleSignin.signIn();
+      if (response.type === 'success' && response.data.idToken) {
+        onSuccess(response.data.idToken);
       } else {
         onError();
       }
-    } catch {
+    } catch (error) {
+      if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) {
+        return;
+      }
       onError();
     } finally {
       setIsRequesting(false);
@@ -84,13 +50,7 @@ export function GoogleSignInButton({ onSuccess, onError }: Props) {
   }
 
   return (
-    <Button
-      variant="secondary"
-      onPress={handlePress}
-      loading={isRequesting}
-      disabled={!request}
-      style={styles.button}
-    >
+    <Button variant="secondary" onPress={handlePress} loading={isRequesting} style={styles.button}>
       <View style={styles.content}>
         <Ionicons name="logo-google" size={18} color={colors.text} />
         <Text style={{ color: colors.text }}>Continuar con Google</Text>

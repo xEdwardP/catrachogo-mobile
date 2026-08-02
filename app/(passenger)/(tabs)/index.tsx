@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
@@ -9,6 +9,7 @@ import { SaveFavoriteAddressModal } from '@/components/SaveFavoriteAddressModal'
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { SAVED_ADDRESS_ICONS, savedAddressDisplayLabel } from '@/constants/SavedAddressLabels';
@@ -24,6 +25,7 @@ import {
 import { getTripHistory } from '@/lib/api/trips';
 import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
+import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
 const RECENT_DESTINATIONS_LIMIT = 5;
@@ -41,6 +43,7 @@ export default function PassengerHomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const openDrawer = useOpenDrawer();
+  const { showToast } = useToast();
   const { location, isLoading, error } = useCurrentLocation();
   const [destinationText, setDestinationText] = useState('');
 
@@ -49,6 +52,8 @@ export default function PassengerHomeScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSavingFavorite, setIsSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [favoriteToDelete, setFavoriteToDelete] = useState<SavedAddress | null>(null);
+  const [isDeletingFavorite, setIsDeletingFavorite] = useState(false);
 
   const mapCenter = location ?? DEFAULT_CENTER;
 
@@ -113,7 +118,11 @@ export default function PassengerHomeScreen() {
       const saved = await createSavedAddress(payload);
       setFavorites((current) => [...current, saved]);
       setIsModalVisible(false);
-      Alert.alert('Dirección guardada', 'Ya puedes pedir un viaje más rápido desde ahí.');
+      showToast({
+        type: 'success',
+        title: 'Dirección guardada',
+        message: 'Ya puedes pedir un viaje más rápido desde ahí.',
+      });
     } catch (err) {
       setFavoriteError(getApiErrorMessage(err));
     } finally {
@@ -121,28 +130,22 @@ export default function PassengerHomeScreen() {
     }
   }
 
-  function handleDeleteFavorite(favorite: SavedAddress) {
-    Alert.alert(
-      'Eliminar dirección',
-      `¿Quieres eliminar "${savedAddressDisplayLabel(favorite)}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const previous = favorites;
-            setFavorites((current) => current.filter((item) => item.id !== favorite.id));
-            try {
-              await deleteSavedAddress(favorite.id);
-            } catch {
-              setFavorites(previous);
-              Alert.alert('No se pudo eliminar la dirección. Intenta de nuevo.');
-            }
-          },
-        },
-      ],
-    );
+  async function confirmDeleteFavorite() {
+    if (!favoriteToDelete) return;
+    const favorite = favoriteToDelete;
+    setIsDeletingFavorite(true);
+    try {
+      await deleteSavedAddress(favorite.id);
+      setFavorites((current) => current.filter((item) => item.id !== favorite.id));
+      setFavoriteToDelete(null);
+    } catch {
+      showToast({
+        type: 'error',
+        message: 'No se pudo eliminar la dirección. Intenta de nuevo.',
+      });
+    } finally {
+      setIsDeletingFavorite(false);
+    }
   }
 
   return (
@@ -169,6 +172,17 @@ export default function PassengerHomeScreen() {
       </View>
 
       <View style={styles.heroSection}>
+        <View style={styles.searchCard}>
+          <PlaceAutocompleteInput
+            placeholder="¿A dónde vas?"
+            icon="search-outline"
+            value={destinationText}
+            onChangeValue={setDestinationText}
+            locationBias={mapCenter}
+            onSelect={handleSelectDestination}
+          />
+        </View>
+
         <View style={[styles.mapWrapper, CARD_SHADOW]}>
           {isLoading ? (
             <View style={styles.mapLoading}>
@@ -189,17 +203,6 @@ export default function PassengerHomeScreen() {
               )}
             </>
           )}
-        </View>
-
-        <View style={styles.searchCard}>
-          <PlaceAutocompleteInput
-            placeholder="¿A dónde vas?"
-            icon="search-outline"
-            value={destinationText}
-            onChangeValue={setDestinationText}
-            locationBias={mapCenter}
-            onSelect={handleSelectDestination}
-          />
         </View>
       </View>
 
@@ -254,7 +257,7 @@ export default function PassengerHomeScreen() {
             </Pressable>
             <Pressable
               style={styles.deleteButton}
-              onPress={() => handleDeleteFavorite(favorite)}
+              onPress={() => setFavoriteToDelete(favorite)}
               hitSlop={8}
             >
               <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
@@ -300,6 +303,21 @@ export default function PassengerHomeScreen() {
           setFavoriteError(null);
           setIsModalVisible(false);
         }}
+      />
+
+      <ConfirmDialog
+        visible={Boolean(favoriteToDelete)}
+        title="Eliminar dirección"
+        message={
+          favoriteToDelete
+            ? `¿Quieres eliminar "${savedAddressDisplayLabel(favoriteToDelete)}"?`
+            : ''
+        }
+        confirmText="Eliminar"
+        isDestructive
+        isSubmitting={isDeletingFavorite}
+        onConfirm={confirmDeleteFavorite}
+        onDismiss={() => setFavoriteToDelete(null)}
       />
     </ScrollView>
   );
@@ -435,8 +453,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchCard: {
-    marginTop: -26,
-    marginHorizontal: 14,
+    marginBottom: 12,
   },
   mapBadge: {
     position: 'absolute',

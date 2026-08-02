@@ -1,3 +1,4 @@
+import { forwardRef, useEffect, useRef } from 'react';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -16,15 +17,47 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export function TripMap({
-  center,
-  markers = [],
-  routePath = [],
-  routeColor = '#E8532E',
-  style,
-}: Props) {
+const RECENTER_ZOOM_DELTA = 0.01;
+const RECENTER_THRESHOLD_DEGREES = 0.001;
+
+function mergeRefs<T>(...refs: (React.Ref<T> | null | undefined)[]) {
+  return (value: T | null) => {
+    for (const ref of refs) {
+      if (!ref) continue;
+      if (typeof ref === 'function') ref(value);
+      else (ref as React.MutableRefObject<T | null>).current = value;
+    }
+  };
+}
+
+export const TripMap = forwardRef<MapView, Props>(function TripMap(
+  { center, markers = [], routePath = [], routeColor = '#E8532E', style },
+  ref,
+) {
+  const internalRef = useRef<MapView>(null);
+  const lastCenterRef = useRef(center);
+
+  useEffect(() => {
+    const last = lastCenterRef.current;
+    lastCenterRef.current = center;
+    const moved =
+      Math.abs(center.lat - last.lat) > RECENTER_THRESHOLD_DEGREES ||
+      Math.abs(center.lng - last.lng) > RECENTER_THRESHOLD_DEGREES;
+    if (!moved) return;
+    internalRef.current?.animateToRegion(
+      {
+        latitude: center.lat,
+        longitude: center.lng,
+        latitudeDelta: RECENTER_ZOOM_DELTA,
+        longitudeDelta: RECENTER_ZOOM_DELTA,
+      },
+      500,
+    );
+  }, [center]);
+
   return (
     <MapView
+      ref={mergeRefs(ref, internalRef)}
       style={[styles.map, style]}
       initialRegion={{
         latitude: center.lat,
@@ -49,7 +82,7 @@ export function TripMap({
       )}
     </MapView>
   );
-}
+});
 
 const styles = StyleSheet.create({
   map: {

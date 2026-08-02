@@ -15,34 +15,37 @@ type Props = {
 export function CloudinaryImagePicker({ label, value, onUploaded }: Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
-  const { isUploading, promptForImage } = useImageUpload(onUploaded);
+  const { isUploading, promptForImage, picker } = useImageUpload(onUploaded);
 
   return (
-    <Pressable
-      style={[styles.container, { borderColor: value ? colors.tint : colors.textSecondary }]}
-      onPress={() => promptForImage(label)}
-      disabled={isUploading}
-    >
-      {value ? (
-        <Image source={{ uri: value }} style={styles.thumbnail} />
-      ) : (
-        <View style={[styles.placeholder, { backgroundColor: colors.surfaceHighlight }]}>
-          <Ionicons name="cloud-upload-outline" size={20} color={colors.tint} />
+    <>
+      <Pressable
+        style={[styles.container, { borderColor: value ? colors.tint : colors.textSecondary }]}
+        onPress={() => promptForImage(label)}
+        disabled={isUploading}
+      >
+        {value ? (
+          <Image source={{ uri: value }} style={styles.thumbnail} />
+        ) : (
+          <View style={[styles.placeholder, { backgroundColor: colors.surfaceHighlight }]}>
+            <Ionicons name="cloud-upload-outline" size={20} color={colors.tint} />
+          </View>
+        )}
+        <View style={styles.textContainer}>
+          <Text style={styles.label}>{label}</Text>
+          <View style={[styles.statusRow, styles.transparentBackground]}>
+            {value && !isUploading && (
+              <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+            )}
+            <Text style={[styles.status, { color: value ? colors.success : colors.textSecondary }]}>
+              {isUploading ? 'Subiendo...' : value ? 'Subido' : 'Toca para subir'}
+            </Text>
+          </View>
         </View>
-      )}
-      <View style={styles.textContainer}>
-        <Text style={styles.label}>{label}</Text>
-        <View style={[styles.statusRow, styles.transparentBackground]}>
-          {value && !isUploading && (
-            <Ionicons name="checkmark-circle" size={13} color={colors.success} />
-          )}
-          <Text style={[styles.status, { color: value ? colors.success : colors.textSecondary }]}>
-            {isUploading ? 'Subiendo...' : value ? 'Subido' : 'Toca para subir'}
-          </Text>
-        </View>
-      </View>
-      {isUploading && <ActivityIndicator color={colors.tint} />}
-    </Pressable>
+        {isUploading && <ActivityIndicator color={colors.tint} />}
+      </Pressable>
+      {picker}
+    </>
   );
 }
 

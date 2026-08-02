@@ -1,19 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
@@ -42,6 +35,7 @@ export default function AdminDriverDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isResolving, setIsResolving] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<'approved' | 'rejected' | null>(null);
 
   const loadDriver = useCallback(async () => {
     if (!driverId) return;
@@ -60,24 +54,6 @@ export default function AdminDriverDetailScreen() {
     loadDriver();
   }, [loadDriver]);
 
-  function confirmResolve(verificationStatus: 'approved' | 'rejected') {
-    const isApproving = verificationStatus === 'approved';
-    Alert.alert(
-      isApproving ? '¿Aprobar conductor?' : '¿Rechazar conductor?',
-      isApproving
-        ? 'Podrá conectarse para recibir viajes. Se le enviará una notificación.'
-        : 'No podrá conectarse hasta volver a enviar sus documentos. Se le enviará una notificación.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: isApproving ? 'Aprobar' : 'Rechazar',
-          style: isApproving ? 'default' : 'destructive',
-          onPress: () => resolve(verificationStatus),
-        },
-      ],
-    );
-  }
-
   async function resolve(verificationStatus: 'approved' | 'rejected') {
     if (!driverId) return;
     setIsResolving(true);
@@ -86,6 +62,7 @@ export default function AdminDriverDetailScreen() {
       router.back();
     } catch (err) {
       setError(getApiErrorMessage(err));
+      setPendingAction(null);
     } finally {
       setIsResolving(false);
     }
@@ -225,7 +202,7 @@ export default function AdminDriverDetailScreen() {
         <View style={styles.actionsRow}>
           <Button
             variant="secondary"
-            onPress={() => confirmResolve('rejected')}
+            onPress={() => setPendingAction('rejected')}
             disabled={isResolving}
             style={styles.actionButton}
           >
@@ -235,7 +212,7 @@ export default function AdminDriverDetailScreen() {
             </View>
           </Button>
           <Button
-            onPress={() => confirmResolve('approved')}
+            onPress={() => setPendingAction('approved')}
             loading={isResolving}
             disabled={isResolving}
             style={[styles.actionButton, { backgroundColor: colors.success }]}
@@ -273,6 +250,21 @@ export default function AdminDriverDetailScreen() {
           <Text style={styles.previewHint}>Toca para cerrar</Text>
         </Pressable>
       </Modal>
+
+      <ConfirmDialog
+        visible={pendingAction !== null}
+        title={pendingAction === 'approved' ? '¿Aprobar conductor?' : '¿Rechazar conductor?'}
+        message={
+          pendingAction === 'approved'
+            ? 'Podrá conectarse para recibir viajes. Se le enviará una notificación.'
+            : 'No podrá conectarse hasta volver a enviar sus documentos. Se le enviará una notificación.'
+        }
+        confirmText={pendingAction === 'approved' ? 'Aprobar' : 'Rechazar'}
+        isDestructive={pendingAction === 'rejected'}
+        isSubmitting={isResolving}
+        onConfirm={() => pendingAction && resolve(pendingAction)}
+        onDismiss={() => setPendingAction(null)}
+      />
     </ScrollView>
   );
 }

@@ -39,3 +39,23 @@ export function getApiErrorMessage(error: unknown): string {
   }
   return 'Ocurrió un error inesperado. Intenta de nuevo.';
 }
+
+export function translatePasswordUpdateError(error: unknown): string {
+  if (!(error instanceof AxiosError) || !error.response) {
+    return 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
+  }
+
+  const status = error.response.status;
+  const rawMessage = (extractBackendMessage(error.response.data) ?? '').toLowerCase();
+
+  if (rawMessage.includes('google')) {
+    return 'Esta cuenta inició sesión con Google y no tiene una contraseña que cambiar.';
+  }
+  if (status === 401) {
+    return 'La contraseña actual no es correcta.';
+  }
+  if (status === 400) {
+    return 'La nueva contraseña debe tener al menos 8 caracteres.';
+  }
+  return 'No se pudo cambiar la contraseña. Intenta de nuevo.';
+}

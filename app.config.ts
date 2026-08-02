@@ -1,7 +1,7 @@
 import type { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'catrachogo-mobile',
+  name: 'Catracho Go',
   slug: 'catracho-go',
   version: '1.0.0',
   orientation: 'portrait',
@@ -66,6 +66,7 @@ const config: ExpoConfig = {
         color: '#E8532E',
       },
     ],
+    '@react-native-google-signin/google-signin',
   ],
   experiments: {
     typedRoutes: true,
