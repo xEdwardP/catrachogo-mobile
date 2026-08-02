@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import {
@@ -17,6 +18,7 @@ import {
   type WithdrawalStatus,
 } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const PAGE_SIZE = 20;
@@ -46,32 +48,38 @@ export default function AdminWithdrawalsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 400);
 
-  const loadPage = useCallback((forStatus: WithdrawalStatus, pageToLoad: number) => {
-    getAdminWithdrawals(forStatus, pageToLoad, PAGE_SIZE)
-      .then((result) => {
-        setWithdrawals((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
-        setTotal(result.total);
-        setError(null);
-      })
-      .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => {
-        setIsLoading(false);
-        setIsLoadingMore(false);
-      });
-  }, []);
+  const loadPage = useCallback(
+    (forStatus: WithdrawalStatus, pageToLoad: number, searchQuery: string) => {
+      getAdminWithdrawals(forStatus, pageToLoad, PAGE_SIZE, searchQuery)
+        .then((result) => {
+          setWithdrawals((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+          setTotal(result.total);
+          setError(null);
+        })
+        .catch((err) => setError(getApiErrorMessage(err)))
+        .finally(() => {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        });
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
       setIsLoading(true);
       setPage(1);
-      loadPage(status, 1);
-    }, [loadPage, status]),
+      loadPage(status, 1, debouncedSearch);
+    }, [loadPage, status, debouncedSearch]),
   );
 
   function handleStatusChange(nextStatus: WithdrawalStatus) {
     if (nextStatus === status) return;
     setIsLoading(true);
+    setSearch('');
     setWithdrawals([]);
     setStatus(nextStatus);
   }
@@ -81,7 +89,7 @@ export default function AdminWithdrawalsScreen() {
     const nextPage = page + 1;
     setIsLoadingMore(true);
     setPage(nextPage);
-    loadPage(status, nextPage);
+    loadPage(status, nextPage, debouncedSearch);
   }
 
   function confirmResolve(withdrawal: AdminWithdrawalRow, nextStatus: 'completed' | 'rejected') {
@@ -130,6 +138,14 @@ export default function AdminWithdrawalsScreen() {
         style={styles.tabsRow}
       />
 
+      <TextField
+        placeholder="Buscar por nombre de conductor o correo de PayPal"
+        autoCapitalize="none"
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
+
       {error && (
         <View style={[styles.noticeRow, styles.transparentBackground]}>
           <Ionicons name="alert-circle" size={14} color="#C0392B" />
@@ -145,10 +161,12 @@ export default function AdminWithdrawalsScreen() {
         <View style={styles.centered}>
           <Ionicons name="wallet-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No hay solicitudes en este estado
+            {debouncedSearch.trim() ? 'Sin resultados' : 'No hay solicitudes en este estado'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Las solicitudes de retiro de los conductores aparecerán aquí.
+            {debouncedSearch.trim()
+              ? 'Ninguna solicitud coincide con tu búsqueda.'
+              : 'Las solicitudes de retiro de los conductores aparecerán aquí.'}
           </Text>
         </View>
       ) : (
@@ -236,6 +254,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   tabsRow: {
+    marginBottom: 12,
+  },
+  search: {
     marginBottom: 12,
   },
   noticeRow: {
