@@ -19,13 +19,7 @@ import { formatRelativeTime } from '@/lib/time/relativeTime';
 
 const PAGE_SIZE = 20;
 
-const TRIP_NOTIFICATION_TYPES = new Set([
-  'trip_accepted',
-  'trip_started',
-  'trip_completed',
-  'trip_cancelled',
-  'driver_arrived',
-]);
+const TRIP_NOTIFICATION_TYPES = new Set(['trip_accepted', 'trip_started', 'driver_arrived']);
 
 const NOTIFICATION_TYPE_ICONS: Record<
   NotificationType,

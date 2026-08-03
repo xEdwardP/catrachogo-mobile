@@ -19,13 +19,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const TRIP_NOTIFICATION_TYPES = new Set([
-  'trip_accepted',
-  'trip_started',
-  'trip_completed',
-  'trip_cancelled',
-  'driver_arrived',
-]);
+const TRIP_NOTIFICATION_TYPES = new Set(['trip_accepted', 'trip_started', 'driver_arrived']);
 
 function handleNotificationData(session: StoredSession, data: Record<string, unknown>) {
   const type = typeof data.type === 'string' ? data.type : undefined;

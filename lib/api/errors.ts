@@ -40,6 +40,24 @@ export function getApiErrorMessage(error: unknown): string {
   return 'Ocurrió un error inesperado. Intenta de nuevo.';
 }
 
+export function translateLoginError(error: unknown): string {
+  if (!(error instanceof AxiosError) || !error.response) {
+    return 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
+  }
+
+  const status = error.response.status;
+
+  switch (status) {
+    case 400:
+    case 401:
+      return 'Correo o contraseña incorrectos.';
+    case 429:
+      return 'Demasiados intentos en poco tiempo. Espera un momento antes de volver a intentar.';
+    default:
+      return 'Ocurrió un error inesperado. Intenta de nuevo.';
+  }
+}
+
 export function translatePasswordUpdateError(error: unknown): string {
   if (!(error instanceof AxiosError) || !error.response) {
     return 'No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.';
