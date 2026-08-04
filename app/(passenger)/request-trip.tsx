@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
+import * as Location from 'expo-location';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
 import { PlaceAutocompleteInput } from '@/components/PlaceAutocompleteInput';
 import { Text, View } from '@/components/Themed';
@@ -15,8 +17,11 @@ import { getApiErrorMessage } from '@/lib/api/errors';
 import { createTrip, estimateFare, type FareEstimate } from '@/lib/api/trips';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
 import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
+import { reverseGeocodeAddress } from '@/lib/location/reverseGeocode';
+import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
 
 export default function RequestTripScreen() {
   const params = useLocalSearchParams<{
@@ -29,6 +34,7 @@ export default function RequestTripScreen() {
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { showToast } = useToast();
 
   const hasOriginParams = Boolean(params.originLat && params.originLng);
   const [origin, setOrigin] = useState<LatLng | null>(
@@ -38,11 +44,25 @@ export default function RequestTripScreen() {
     hasOriginParams ? params.originAddress || 'Mi ubicación actual' : '',
   );
 
+  const [isLocating, setIsLocating] = useState(false);
+  const mapRef = useRef<MapView>(null);
+
   const fallbackLocation = useCurrentLocation();
   useEffect(() => {
     if (origin || !fallbackLocation.location) return;
-    setOrigin(fallbackLocation.location);
-    setOriginAddress((prev) => prev || 'Mi ubicación actual');
+    const location = fallbackLocation.location;
+    setOrigin(location);
+    let cancelled = false;
+    reverseGeocodeAddress(location)
+      .then((address) => {
+        if (!cancelled) setOriginAddress((prev) => prev || address || 'Mi ubicación actual');
+      })
+      .catch(() => {
+        if (!cancelled) setOriginAddress((prev) => prev || 'Mi ubicación actual');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [origin, fallbackLocation.location]);
   const [destination, setDestination] = useState<LatLng>({
     lat: Number(params.destLat),
@@ -87,11 +107,9 @@ export default function RequestTripScreen() {
     let cancelled = false;
     getDirectionsRoute(origin, destination)
       .then((route) => {
-        if (!cancelled) setRoutePath(route?.path ?? []);
+        if (!cancelled && route) setRoutePath(route.path);
       })
-      .catch(() => {
-        if (!cancelled) setRoutePath([]);
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -114,8 +132,51 @@ export default function RequestTripScreen() {
         params: { tripId: trip.id, destinationAddress },
       });
     } catch (error) {
-      Alert.alert('No se pudo solicitar el viaje', getApiErrorMessage(error));
+      showToast({
+        type: 'error',
+        title: 'No se pudo solicitar el viaje',
+        message: getApiErrorMessage(error),
+      });
       setIsRequesting(false);
+    }
+  }
+
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showToast({
+          type: 'info',
+          title: 'Ubicación no disponible',
+          message: 'Necesitamos acceso a tu ubicación. Actívalo en los ajustes del teléfono.',
+        });
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const location: LatLng = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setOrigin(location);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: location.lat,
+          longitude: location.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
+      const address = await reverseGeocodeAddress(location);
+      setOriginAddress(address || 'Mi ubicación actual');
+    } catch {
+      showToast({
+        type: 'error',
+        title: 'No se pudo obtener tu ubicación',
+        message: 'Intenta de nuevo en un momento.',
+      });
+    } finally {
+      setIsLocating(false);
     }
   }
 
@@ -124,10 +185,11 @@ export default function RequestTripScreen() {
   return (
     <View style={styles.container}>
       <TripMap
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         center={mapCenter}
         markers={[
-          ...(origin ? [{ position: origin }] : []),
+          ...(origin ? [{ position: origin, color: colors.success, pulse: true }] : []),
           { position: destination, color: colors.tint },
         ]}
         routePath={routePath}
@@ -139,6 +201,18 @@ export default function RequestTripScreen() {
         onPress={() => router.back()}
       >
         <Ionicons name="arrow-back" size={20} color={colors.text} />
+      </Pressable>
+
+      <Pressable
+        style={[styles.locateButton, { backgroundColor: colors.background }]}
+        onPress={handleLocateMe}
+        disabled={isLocating}
+      >
+        {isLocating ? (
+          <ActivityIndicator size="small" color={colors.tint} />
+        ) : (
+          <Ionicons name="locate" size={20} color={colors.tint} />
+        )}
       </Pressable>
 
       <BottomSheet
@@ -224,6 +298,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 56,
     left: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 56,
+    right: 16,
     width: 44,
     height: 44,
     borderRadius: 22,

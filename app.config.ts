@@ -1,7 +1,7 @@
 import type { ExpoConfig } from 'expo/config';
 
 const config: ExpoConfig = {
-  name: 'catrachogo-mobile',
+  name: 'Catracho Go',
   slug: 'catracho-go',
   version: '1.0.0',
   orientation: 'portrait',
@@ -59,6 +59,14 @@ const config: ExpoConfig = {
           'CatrachoGo usa tu ubicación para mostrar conductores cercanos y calcular la tarifa de tu viaje.',
       },
     ],
+    [
+      'expo-notifications',
+      {
+        icon: './assets/logo/logo_without_text.png',
+        color: '#E8532E',
+      },
+    ],
+    '@react-native-google-signin/google-signin',
   ],
   experiments: {
     typedRoutes: true,

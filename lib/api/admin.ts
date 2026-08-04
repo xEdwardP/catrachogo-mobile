@@ -101,8 +101,15 @@ export type AdminDriverRow = {
   }[];
 };
 
-export async function getAdminDrivers(status: VerificationStatus): Promise<AdminDriverRow[]> {
-  const { data } = await apiClient.get<AdminDriverRow[]>('/admin/drivers', { params: { status } });
+export async function getAdminDrivers(
+  status: VerificationStatus,
+  page: number,
+  limit: number,
+  search?: string,
+): Promise<PaginatedResult<AdminDriverRow>> {
+  const { data } = await apiClient.get<PaginatedResult<AdminDriverRow>>('/admin/drivers', {
+    params: { status, page, limit, search: search || undefined },
+  });
   return data;
 }
 
@@ -148,9 +155,14 @@ export type AdminWithdrawalRow = {
   };
 };
 
-export async function getAdminWithdrawals(status: WithdrawalStatus): Promise<AdminWithdrawalRow[]> {
-  const { data } = await apiClient.get<AdminWithdrawalRow[]>('/admin/withdrawals', {
-    params: { status },
+export async function getAdminWithdrawals(
+  status: WithdrawalStatus,
+  page: number,
+  limit: number,
+  search?: string,
+): Promise<PaginatedResult<AdminWithdrawalRow>> {
+  const { data } = await apiClient.get<PaginatedResult<AdminWithdrawalRow>>('/admin/withdrawals', {
+    params: { status, page, limit, search: search || undefined },
   });
   return data;
 }
@@ -178,10 +190,13 @@ export type AdminIncidentReportRow = {
 
 export async function getAdminIncidentReports(
   status: IncidentReportStatus,
-): Promise<AdminIncidentReportRow[]> {
-  const { data } = await apiClient.get<AdminIncidentReportRow[]>('/admin/incident-reports', {
-    params: { status },
-  });
+  page: number,
+  limit: number,
+): Promise<PaginatedResult<AdminIncidentReportRow>> {
+  const { data } = await apiClient.get<PaginatedResult<AdminIncidentReportRow>>(
+    '/admin/incident-reports',
+    { params: { status, page, limit } },
+  );
   return data;
 }
 

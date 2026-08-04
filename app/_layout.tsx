@@ -12,7 +12,9 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { useColorScheme } from '@/components/useColorScheme';
 import { DarkNavigationTheme, LightNavigationTheme } from '@/constants/NavigationTheme';
 import { AuthProvider, useAuth } from '@/lib/auth/AuthContext';
+import { usePushNotifications } from '@/lib/notifications/usePushNotifications';
 import { ThemeProvider as AppThemeProvider } from '@/lib/theme/ThemeContext';
+import { ToastProvider } from '@/lib/toast/ToastContext';
 
 export { GlobalErrorScreen as ErrorBoundary };
 
@@ -34,9 +36,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppThemeProvider>
-        <AuthProvider>
-          <RootLayoutNav />
-        </AuthProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RootLayoutNav />
+          </AuthProvider>
+        </ToastProvider>
       </AppThemeProvider>
     </GestureHandlerRootView>
   );
@@ -46,6 +50,8 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, profile, isLoading } = useAuth();
   const hasCompleteProfile = Boolean(session) && Boolean(profile?.phone);
+
+  usePushNotifications();
 
   useEffect(() => {
     if (!isLoading) {

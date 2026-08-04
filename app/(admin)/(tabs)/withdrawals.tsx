@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { SegmentedTabs } from '@/components/ui/SegmentedTabs';
+import { TextField } from '@/components/ui/TextField';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import {
@@ -17,7 +19,10 @@ import {
   type WithdrawalStatus,
 } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
+
+const PAGE_SIZE = 20;
 
 const STATUS_TABS: { value: WithdrawalStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
@@ -38,56 +43,69 @@ export default function AdminWithdrawalsScreen() {
 
   const [status, setStatus] = useState<WithdrawalStatus>('pending');
   const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [pendingResolve, setPendingResolve] = useState<{
+    withdrawal: AdminWithdrawalRow;
+    nextStatus: 'completed' | 'rejected';
+  } | null>(null);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 400);
 
-  const fetchWithdrawals = useCallback((forStatus: WithdrawalStatus) => {
-    getAdminWithdrawals(forStatus)
-      .then((result) => {
-        setWithdrawals(result);
-        setError(null);
-      })
-      .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const loadPage = useCallback(
+    (forStatus: WithdrawalStatus, pageToLoad: number, searchQuery: string) => {
+      getAdminWithdrawals(forStatus, pageToLoad, PAGE_SIZE, searchQuery)
+        .then((result) => {
+          setWithdrawals((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+          setTotal(result.total);
+          setError(null);
+        })
+        .catch((err) => setError(getApiErrorMessage(err)))
+        .finally(() => {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        });
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      fetchWithdrawals(status);
-    }, [fetchWithdrawals, status]),
+      setIsLoading(true);
+      setPage(1);
+      loadPage(status, 1, debouncedSearch);
+    }, [loadPage, status, debouncedSearch]),
   );
 
   function handleStatusChange(nextStatus: WithdrawalStatus) {
     if (nextStatus === status) return;
     setIsLoading(true);
+    setSearch('');
     setWithdrawals([]);
     setStatus(nextStatus);
   }
 
-  function confirmResolve(withdrawal: AdminWithdrawalRow, nextStatus: 'completed' | 'rejected') {
-    const isCompleting = nextStatus === 'completed';
-    Alert.alert(
-      isCompleting ? '¿Marcar como completado?' : '¿Rechazar retiro?',
-      isCompleting
-        ? `Confirma que ya transferiste L. ${withdrawal.amount.toFixed(2)} a ${withdrawal.paypalEmail} por fuera de la app. Esta acción no se puede deshacer.`
-        : `El monto de L. ${withdrawal.amount.toFixed(2)} volverá al saldo de ${withdrawal.driver.user.name}.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: isCompleting ? 'Marcar completado' : 'Rechazar',
-          style: isCompleting ? 'default' : 'destructive',
-          onPress: () => resolve(withdrawal.id, nextStatus),
-        },
-      ],
-    );
+  function handleEndReached() {
+    if (isLoadingMore || isLoading || withdrawals.length >= total) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    setPage(nextPage);
+    loadPage(status, nextPage, debouncedSearch);
   }
 
-  async function resolve(requestId: string, nextStatus: 'completed' | 'rejected') {
-    setResolvingId(requestId);
+  async function resolve() {
+    if (!pendingResolve) return;
+    const { withdrawal, nextStatus } = pendingResolve;
+    setResolvingId(withdrawal.id);
     try {
-      await resolveWithdrawal(requestId, nextStatus);
-      setWithdrawals((current) => current.filter((item) => item.id !== requestId));
+      await resolveWithdrawal(withdrawal.id, nextStatus);
+      setWithdrawals((current) => current.filter((item) => item.id !== withdrawal.id));
+      setTotal((current) => current - 1);
+      setPendingResolve(null);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -110,6 +128,14 @@ export default function AdminWithdrawalsScreen() {
         style={styles.tabsRow}
       />
 
+      <TextField
+        placeholder="Buscar por nombre de conductor o correo de PayPal"
+        autoCapitalize="none"
+        value={search}
+        onChangeText={setSearch}
+        style={styles.search}
+      />
+
       {error && (
         <View style={[styles.noticeRow, styles.transparentBackground]}>
           <Ionicons name="alert-circle" size={14} color="#C0392B" />
@@ -125,10 +151,12 @@ export default function AdminWithdrawalsScreen() {
         <View style={styles.centered}>
           <Ionicons name="wallet-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No hay solicitudes en este estado
+            {debouncedSearch.trim() ? 'Sin resultados' : 'No hay solicitudes en este estado'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Las solicitudes de retiro de los conductores aparecerán aquí.
+            {debouncedSearch.trim()
+              ? 'Ninguna solicitud coincide con tu búsqueda.'
+              : 'Las solicitudes de retiro de los conductores aparecerán aquí.'}
           </Text>
         </View>
       ) : (
@@ -136,6 +164,15 @@ export default function AdminWithdrawalsScreen() {
           data={withdrawals}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.tint} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <Card style={styles.card}>
               <View style={[styles.cardHeader, styles.transparentBackground]}>
@@ -165,7 +202,7 @@ export default function AdminWithdrawalsScreen() {
                 <View style={[styles.actionsRow, styles.transparentBackground]}>
                   <Button
                     variant="secondary"
-                    onPress={() => confirmResolve(item, 'rejected')}
+                    onPress={() => setPendingResolve({ withdrawal: item, nextStatus: 'rejected' })}
                     disabled={resolvingId === item.id}
                     style={styles.actionButton}
                   >
@@ -175,7 +212,7 @@ export default function AdminWithdrawalsScreen() {
                     </View>
                   </Button>
                   <Button
-                    onPress={() => confirmResolve(item, 'completed')}
+                    onPress={() => setPendingResolve({ withdrawal: item, nextStatus: 'completed' })}
                     loading={resolvingId === item.id}
                     disabled={resolvingId === item.id}
                     style={[styles.actionButton, { backgroundColor: colors.success }]}
@@ -191,6 +228,23 @@ export default function AdminWithdrawalsScreen() {
           )}
         />
       )}
+
+      <ConfirmDialog
+        visible={pendingResolve !== null}
+        title={pendingResolve?.nextStatus === 'completed' ? '¿Marcar como completado?' : '¿Rechazar retiro?'}
+        message={
+          pendingResolve
+            ? pendingResolve.nextStatus === 'completed'
+              ? `Confirma que ya transferiste L. ${pendingResolve.withdrawal.amount.toFixed(2)} a ${pendingResolve.withdrawal.paypalEmail} por fuera de la app. Esta acción no se puede deshacer.`
+              : `El monto de L. ${pendingResolve.withdrawal.amount.toFixed(2)} volverá al saldo de ${pendingResolve.withdrawal.driver.user.name}.`
+            : ''
+        }
+        confirmText={pendingResolve?.nextStatus === 'completed' ? 'Marcar completado' : 'Rechazar'}
+        isDestructive={pendingResolve?.nextStatus === 'rejected'}
+        isSubmitting={resolvingId === pendingResolve?.withdrawal.id}
+        onConfirm={resolve}
+        onDismiss={() => setPendingResolve(null)}
+      />
     </View>
   );
 }
@@ -207,6 +261,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   tabsRow: {
+    marginBottom: 12,
+  },
+  search: {
     marginBottom: 12,
   },
   noticeRow: {
@@ -299,5 +356,8 @@ const styles = StyleSheet.create({
   completeText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
 });

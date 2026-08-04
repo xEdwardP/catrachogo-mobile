@@ -13,7 +13,10 @@ import Colors from '@/constants/Colors';
 import { VEHICLE_TYPE_ICONS, VEHICLE_TYPE_LABELS } from '@/constants/VehicleTypeLabels';
 import { getAdminDrivers, type AdminDriverRow, type VerificationStatus } from '@/lib/api/admin';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
+
+const PAGE_SIZE = 20;
 
 const STATUS_TABS: { value: VerificationStatus; label: string }[] = [
   { value: 'pending', label: 'Pendientes' },
@@ -28,24 +31,37 @@ export default function AdminDriversScreen() {
 
   const [status, setStatus] = useState<VerificationStatus>('pending');
   const [drivers, setDrivers] = useState<AdminDriverRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 400);
 
-  const fetchDrivers = useCallback((forStatus: VerificationStatus) => {
-    getAdminDrivers(forStatus)
-      .then((result) => {
-        setDrivers(result);
-        setError(null);
-      })
-      .catch((err) => setError(getApiErrorMessage(err)))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const loadPage = useCallback(
+    (forStatus: VerificationStatus, pageToLoad: number, searchQuery: string) => {
+      getAdminDrivers(forStatus, pageToLoad, PAGE_SIZE, searchQuery)
+        .then((result) => {
+          setDrivers((prev) => (pageToLoad === 1 ? result.data : [...prev, ...result.data]));
+          setTotal(result.total);
+          setError(null);
+        })
+        .catch((err) => setError(getApiErrorMessage(err)))
+        .finally(() => {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        });
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      fetchDrivers(status);
-    }, [fetchDrivers, status]),
+      setIsLoading(true);
+      setPage(1);
+      loadPage(status, 1, debouncedSearch);
+    }, [loadPage, status, debouncedSearch]),
   );
 
   function handleStatusChange(nextStatus: VerificationStatus) {
@@ -56,20 +72,21 @@ export default function AdminDriversScreen() {
     setStatus(nextStatus);
   }
 
-  const visibleDrivers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const filtered = query
-      ? drivers.filter(
-          (driver) =>
-            driver.user.name.toLowerCase().includes(query) ||
-            driver.vehicles[0]?.plate.toLowerCase().includes(query),
-        )
-      : drivers;
+  function handleEndReached() {
+    if (isLoadingMore || isLoading || drivers.length >= total) return;
+    const nextPage = page + 1;
+    setIsLoadingMore(true);
+    setPage(nextPage);
+    loadPage(status, nextPage, debouncedSearch);
+  }
 
-    return [...filtered].sort(
-      (a, b) => new Date(b.user.createdAt).getTime() - new Date(a.user.createdAt).getTime(),
-    );
-  }, [drivers, search]);
+  const visibleDrivers = useMemo(
+    () =>
+      [...drivers].sort(
+        (a, b) => new Date(b.user.createdAt).getTime() - new Date(a.user.createdAt).getTime(),
+      ),
+    [drivers],
+  );
 
   const statusLabel = STATUS_TABS.find((tab) => tab.value === status)?.label.toLowerCase() ?? '';
 
@@ -108,12 +125,12 @@ export default function AdminDriversScreen() {
         <View style={styles.centered}>
           <Ionicons name="people-outline" size={22} color={colors.tint} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {drivers.length === 0 ? 'No hay conductores en este estado' : 'Sin resultados'}
+            {debouncedSearch.trim() ? 'Sin resultados' : 'No hay conductores en este estado'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {drivers.length === 0
-              ? 'Cuando haya movimiento en esta categoría, aparecerá aquí.'
-              : 'Ningún conductor coincide con tu búsqueda.'}
+            {debouncedSearch.trim()
+              ? 'Ningún conductor coincide con tu búsqueda.'
+              : 'Cuando haya movimiento en esta categoría, aparecerá aquí.'}
           </Text>
         </View>
       ) : (
@@ -122,6 +139,15 @@ export default function AdminDriversScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.footerLoading}>
+                <ActivityIndicator color={colors.tint} />
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => {
             const vehicle = item.vehicles[0];
             return (
@@ -243,5 +269,8 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: 12,
+  },
+  footerLoading: {
+    paddingVertical: 16,
   },
 });

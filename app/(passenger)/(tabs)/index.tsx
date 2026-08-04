@@ -1,14 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
+import { LocationLegend } from '@/components/LocationLegend';
+import { MapLocationPickerModal } from '@/components/MapLocationPickerModal';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
 import { SaveFavoriteAddressModal } from '@/components/SaveFavoriteAddressModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap } from '@/components/TripMap';
 import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { SAVED_ADDRESS_ICONS, savedAddressDisplayLabel } from '@/constants/SavedAddressLabels';
@@ -22,10 +27,12 @@ import {
   type SavedAddress,
 } from '@/lib/api/savedAddresses';
 import { getTripHistory } from '@/lib/api/trips';
-import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
+import { useCurrentLocation, type LatLng } from '@/lib/location/useCurrentLocation';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
+import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
 const RECENT_DESTINATIONS_LIMIT = 5;
 const TRIP_HISTORY_SAMPLE_SIZE = 20;
 
@@ -41,7 +48,14 @@ export default function PassengerHomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const openDrawer = useOpenDrawer();
-  const { location, isLoading, error } = useCurrentLocation();
+  const { showToast } = useToast();
+  const fallbackLocation = useCurrentLocation();
+  const [manualLocation, setManualLocation] = useState<LatLng | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const location = manualLocation ?? fallbackLocation.location;
+  const { isLoading, error } = fallbackLocation;
+  const mapRef = useRef<MapView>(null);
+  const [isPickerVisible, setIsPickerVisible] = useState(false);
   const [destinationText, setDestinationText] = useState('');
 
   const [favorites, setFavorites] = useState<SavedAddress[]>([]);
@@ -49,6 +63,8 @@ export default function PassengerHomeScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSavingFavorite, setIsSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
+  const [favoriteToDelete, setFavoriteToDelete] = useState<SavedAddress | null>(null);
+  const [isDeletingFavorite, setIsDeletingFavorite] = useState(false);
 
   const mapCenter = location ?? DEFAULT_CENTER;
 
@@ -101,9 +117,38 @@ export default function PassengerHomeScreen() {
     [location],
   );
 
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const next = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setManualLocation(next);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: next.lat,
+          longitude: next.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
+    } catch {
+    } finally {
+      setIsLocating(false);
+    }
+  }
+
   function handleSelectDestination(place: PlaceSelection) {
     setDestinationText(place.address);
     goToRequestTrip(place);
+  }
+
+  function handleRemoveRecentDestination(place: PlaceSelection) {
+    setRecentDestinations((current) => current.filter((item) => item.address !== place.address));
   }
 
   async function handleSaveFavorite(payload: CreateSavedAddressPayload) {
@@ -113,7 +158,11 @@ export default function PassengerHomeScreen() {
       const saved = await createSavedAddress(payload);
       setFavorites((current) => [...current, saved]);
       setIsModalVisible(false);
-      Alert.alert('Dirección guardada', 'Ya puedes pedir un viaje más rápido desde ahí.');
+      showToast({
+        type: 'success',
+        title: 'Dirección guardada',
+        message: 'Ya puedes pedir un viaje más rápido desde ahí.',
+      });
     } catch (err) {
       setFavoriteError(getApiErrorMessage(err));
     } finally {
@@ -121,28 +170,22 @@ export default function PassengerHomeScreen() {
     }
   }
 
-  function handleDeleteFavorite(favorite: SavedAddress) {
-    Alert.alert(
-      'Eliminar dirección',
-      `¿Quieres eliminar "${savedAddressDisplayLabel(favorite)}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const previous = favorites;
-            setFavorites((current) => current.filter((item) => item.id !== favorite.id));
-            try {
-              await deleteSavedAddress(favorite.id);
-            } catch {
-              setFavorites(previous);
-              Alert.alert('No se pudo eliminar la dirección. Intenta de nuevo.');
-            }
-          },
-        },
-      ],
-    );
+  async function confirmDeleteFavorite() {
+    if (!favoriteToDelete) return;
+    const favorite = favoriteToDelete;
+    setIsDeletingFavorite(true);
+    try {
+      await deleteSavedAddress(favorite.id);
+      setFavorites((current) => current.filter((item) => item.id !== favorite.id));
+      setFavoriteToDelete(null);
+    } catch {
+      showToast({
+        type: 'error',
+        message: 'No se pudo eliminar la dirección. Intenta de nuevo.',
+      });
+    } finally {
+      setIsDeletingFavorite(false);
+    }
   }
 
   return (
@@ -169,28 +212,6 @@ export default function PassengerHomeScreen() {
       </View>
 
       <View style={styles.heroSection}>
-        <View style={[styles.mapWrapper, CARD_SHADOW]}>
-          {isLoading ? (
-            <View style={styles.mapLoading}>
-              <ActivityIndicator color={colors.tint} />
-            </View>
-          ) : (
-            <>
-              <TripMap
-                style={styles.map}
-                center={mapCenter}
-                markers={location ? [{ position: location }] : []}
-              />
-              {location && (
-                <View style={[styles.mapBadge, { backgroundColor: colors.background }]}>
-                  <Ionicons name="navigate" size={12} color={colors.tint} />
-                  <Text style={styles.mapBadgeText}>Tu ubicación</Text>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
         <View style={styles.searchCard}>
           <PlaceAutocompleteInput
             placeholder="¿A dónde vas?"
@@ -201,7 +222,54 @@ export default function PassengerHomeScreen() {
             onSelect={handleSelectDestination}
           />
         </View>
+
+        <View style={[styles.mapWrapper, CARD_SHADOW]}>
+          {isLoading ? (
+            <View style={styles.mapLoading}>
+              <ActivityIndicator color={colors.tint} />
+            </View>
+          ) : (
+            <>
+              <TripMap
+                ref={mapRef}
+                style={styles.map}
+                center={mapCenter}
+                markers={location ? [{ position: location, color: colors.success, pulse: true }] : []}
+              />
+              {location && (
+                <LocationLegend color={colors.success} style={styles.mapBadge} />
+              )}
+              <Pressable
+                style={[styles.expandButton, { backgroundColor: colors.background }]}
+                onPress={() => setIsPickerVisible(true)}
+              >
+                <Ionicons name="expand" size={16} color={colors.tint} />
+              </Pressable>
+              <Pressable
+                style={[styles.locateButton, { backgroundColor: colors.background }]}
+                onPress={handleLocateMe}
+                disabled={isLocating}
+              >
+                {isLocating ? (
+                  <ActivityIndicator size="small" color={colors.tint} />
+                ) : (
+                  <Ionicons name="locate" size={18} color={colors.tint} />
+                )}
+              </Pressable>
+            </>
+          )}
+        </View>
       </View>
+
+      <MapLocationPickerModal
+        visible={isPickerVisible}
+        initialCenter={mapCenter}
+        onDismiss={() => setIsPickerVisible(false)}
+        onSelect={(place) => {
+          setIsPickerVisible(false);
+          goToRequestTrip(place);
+        }}
+      />
 
       {error && (
         <View style={[styles.noticeRow, styles.transparentBackground]}>
@@ -254,7 +322,7 @@ export default function PassengerHomeScreen() {
             </Pressable>
             <Pressable
               style={styles.deleteButton}
-              onPress={() => handleDeleteFavorite(favorite)}
+              onPress={() => setFavoriteToDelete(favorite)}
               hitSlop={8}
             >
               <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
@@ -267,11 +335,7 @@ export default function PassengerHomeScreen() {
         <>
           <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>Destinos recientes</Text>
           {recentDestinations.map((place) => (
-            <Pressable
-              key={place.address}
-              style={[styles.row, { backgroundColor: colors.surfaceHighlight }, CARD_SHADOW]}
-              onPress={() => goToRequestTrip(place)}
-            >
+            <Card key={place.address} style={[styles.row, CARD_SHADOW]}>
               <View
                 style={[
                   styles.rowIcon,
@@ -281,11 +345,19 @@ export default function PassengerHomeScreen() {
               >
                 <Ionicons name="time-outline" size={18} color={colors.tint} />
               </View>
-              <Text style={[styles.rowAddress, styles.recentAddress]} numberOfLines={1}>
-                {place.address}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </Pressable>
+              <Pressable style={styles.rowMain} onPress={() => goToRequestTrip(place)}>
+                <Text style={[styles.rowAddress, styles.recentAddress]} numberOfLines={1}>
+                  {place.address}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.deleteButton}
+                onPress={() => handleRemoveRecentDestination(place)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </Card>
           ))}
         </>
       )}
@@ -300,6 +372,21 @@ export default function PassengerHomeScreen() {
           setFavoriteError(null);
           setIsModalVisible(false);
         }}
+      />
+
+      <ConfirmDialog
+        visible={Boolean(favoriteToDelete)}
+        title="Eliminar dirección"
+        message={
+          favoriteToDelete
+            ? `¿Quieres eliminar "${savedAddressDisplayLabel(favoriteToDelete)}"?`
+            : ''
+        }
+        confirmText="Eliminar"
+        isDestructive
+        isSubmitting={isDeletingFavorite}
+        onConfirm={confirmDeleteFavorite}
+        onDismiss={() => setFavoriteToDelete(null)}
       />
     </ScrollView>
   );
@@ -435,22 +522,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchCard: {
-    marginTop: -26,
-    marginHorizontal: 14,
+    marginBottom: 12,
   },
   mapBadge: {
     position: 'absolute',
     left: 10,
     top: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
   },
-  mapBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+  locateButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expandButton: {
+    position: 'absolute',
+    top: 10,
+    right: 52,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
 });

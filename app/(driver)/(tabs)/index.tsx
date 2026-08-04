@@ -1,10 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet } from 'react-native';
+import * as Location from 'expo-location';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
+import { FullscreenMapViewer } from '@/components/FullscreenMapViewer';
+import { LocationLegend } from '@/components/LocationLegend';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Text, View } from '@/components/Themed';
+import { TripDetailModal } from '@/components/TripDetailModal';
 import { TripMap } from '@/components/TripMap';
 import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -13,14 +18,19 @@ import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripSt
 import { getApiStatusCode } from '@/lib/api/client';
 import { getDriverSummary, updateAvailability, type DriverSummary } from '@/lib/api/drivers';
 import { getPendingRequest } from '@/lib/api/drivers';
-import { getTripHistory, type Trip } from '@/lib/api/trips';
+import { getTripHistory, type TripHistoryItem } from '@/lib/api/trips';
 import { sendDriverLocation } from '@/lib/api/tracking';
-import { useCurrentLocation } from '@/lib/location/useCurrentLocation';
+import { useCurrentLocation, type LatLng } from '@/lib/location/useCurrentLocation';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 
 const RECENT_TRIPS_LIMIT = 5;
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const LOCATE_ZOOM_DELTA = 0.005;
+
+function isTripTrackable(trip: TripHistoryItem) {
+  return trip.status === 'accepted' || trip.status === 'in_progress';
+}
 
 const CARD_SHADOW = {
   shadowColor: '#000',
@@ -34,13 +44,19 @@ export default function DriverHomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const openDrawer = useOpenDrawer();
-  const { location } = useCurrentLocation();
+  const fallbackLocation = useCurrentLocation();
+  const [manualLocation, setManualLocation] = useState<LatLng | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const location = manualLocation ?? fallbackLocation.location;
+  const mapRef = useRef<MapView>(null);
 
   const [summary, setSummary] = useState<DriverSummary | null>(null);
   const [isAvailable, setIsAvailable] = useState(false);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
+  const [recentTrips, setRecentTrips] = useState<TripHistoryItem[]>([]);
+  const [detailTrip, setDetailTrip] = useState<TripHistoryItem | null>(null);
 
   const fetchSummary = useCallback(() => {
     getDriverSummary()
@@ -115,6 +131,42 @@ export default function DriverHomeScreen() {
     } finally {
       setIsTogglingAvailability(false);
     }
+  }
+
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const next = { lat: position.coords.latitude, lng: position.coords.longitude };
+      setManualLocation(next);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: next.lat,
+          longitude: next.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
+    } catch {
+    } finally {
+      setIsLocating(false);
+    }
+  }
+
+  function handlePressRecentTrip(trip: TripHistoryItem) {
+    if (isTripTrackable(trip)) {
+      router.push({
+        pathname: '/(driver)/trip/[tripId]',
+        params: { tripId: trip.id },
+      });
+      return;
+    }
+    setDetailTrip(trip);
   }
 
   const mapCenter = location ?? DEFAULT_CENTER;
@@ -207,9 +259,10 @@ export default function DriverHomeScreen() {
       <View style={[styles.mapShadowWrapper, CARD_SHADOW]}>
         <View style={styles.mapWrapper}>
           <TripMap
+            ref={mapRef}
             style={styles.map}
             center={mapCenter}
-            markers={location ? [{ position: location }] : []}
+            markers={location ? [{ position: location, color: colors.driverLocation, pulse: true }] : []}
           />
           {isAvailable && (
             <View style={[styles.searchingBadge, { backgroundColor: colors.background }]}>
@@ -219,8 +272,35 @@ export default function DriverHomeScreen() {
               </Text>
             </View>
           )}
+          {location && (
+            <LocationLegend color={colors.driverLocation} style={styles.locationLegend} />
+          )}
+          <Pressable
+            style={[styles.expandButton, { backgroundColor: colors.background }]}
+            onPress={() => setIsMapExpanded(true)}
+          >
+            <Ionicons name="expand" size={16} color={colors.tint} />
+          </Pressable>
+          <Pressable
+            style={[styles.locateButton, { backgroundColor: colors.background }]}
+            onPress={handleLocateMe}
+            disabled={isLocating}
+          >
+            {isLocating ? (
+              <ActivityIndicator size="small" color={colors.tint} />
+            ) : (
+              <Ionicons name="locate" size={18} color={colors.tint} />
+            )}
+          </Pressable>
         </View>
       </View>
+
+      <FullscreenMapViewer
+        visible={isMapExpanded}
+        onDismiss={() => setIsMapExpanded(false)}
+        center={mapCenter}
+        markers={location ? [{ position: location, color: colors.driverLocation, pulse: true }] : []}
+      />
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ÚLTIMOS VIAJES</Text>
       {recentTrips.length === 0 ? (
@@ -234,21 +314,25 @@ export default function DriverHomeScreen() {
         recentTrips.map((trip) => {
           const badgeColors = TRIP_STATUS_BADGE_COLORS[trip.status];
           return (
-            <Card key={trip.id} style={styles.tripRow}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <Text style={styles.tripDestination} numberOfLines={1}>
-                {trip.destinationAddress}
-              </Text>
-              <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
-                <Text style={[styles.badgeText, { color: badgeColors.text }]}>
-                  {TRIP_STATUS_LABELS[trip.status]}
+            <Pressable key={trip.id} onPress={() => handlePressRecentTrip(trip)}>
+              <Card style={styles.tripRow}>
+                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                <Text style={[styles.tripDate, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {new Date(trip.requestedAt).toLocaleDateString('es-HN')}
                 </Text>
-              </View>
-              <Text style={styles.tripFare}>L. {trip.fare.toFixed(0)}</Text>
-            </Card>
+                <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
+                  <Text style={[styles.badgeText, { color: badgeColors.text }]}>
+                    {TRIP_STATUS_LABELS[trip.status]}
+                  </Text>
+                </View>
+                <Text style={styles.tripFare}>L. {trip.fare.toFixed(0)}</Text>
+              </Card>
+            </Pressable>
           );
         })
       )}
+
+      <TripDetailModal trip={detailTrip} onDismiss={() => setDetailTrip(null)} />
     </View>
   );
 }
@@ -374,6 +458,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  locationLegend: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  expandButton: {
+    position: 'absolute',
+    top: 10,
+    right: 52,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   emptyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -388,7 +505,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  tripDestination: {
+  tripDate: {
     flex: 1,
     fontSize: 13,
   },

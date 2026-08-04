@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, StyleSheet } from 'react-native';
+import type MapView from 'react-native-maps';
 
+import { LocationLegend } from '@/components/LocationLegend';
 import { ReportNoShowModal } from '@/components/ReportNoShowModal';
 import { Text, View } from '@/components/Themed';
 import { TripMap, type TripMapMarker } from '@/components/TripMap';
@@ -12,6 +14,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { NO_SHOW_GRACE_PERIOD_MS } from '@/constants/NoShowGracePeriod';
 import { getApiErrorMessage } from '@/lib/api/errors';
+import { sendDriverLocation } from '@/lib/api/tracking';
 import {
   completeTrip,
   getTripDetail,
@@ -21,12 +24,24 @@ import {
   type TripDetail,
   type TripStatus,
 } from '@/lib/api/trips';
-import { sendDriverLocation } from '@/lib/api/tracking';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
-import { ARRIVAL_RADIUS_METERS, distanceMeters } from '@/lib/geo/distance';
+import { ARRIVAL_RADIUS_METERS, distanceMeters, isPlausibleMovement } from '@/lib/geo/distance';
 import { usePolling } from '@/lib/hooks/usePolling';
+import { useSmoothedPosition } from '@/lib/hooks/useSmoothedPosition';
+import { useToast } from '@/lib/toast/ToastContext';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
+const DEMO_MODE_ENABLED = process.env.EXPO_PUBLIC_ENABLE_DEMO_MODE === 'true';
+const LOCATE_ZOOM_DELTA = 0.005;
+const SIMULATION_STEP_MS = 350;
+const SIMULATION_MAX_STEPS = 24;
+const ROUTE_RECOMPUTE_DISTANCE_METERS = 120;
+
+function resamplePath(path: LatLng[], maxPoints: number): LatLng[] {
+  if (path.length <= maxPoints) return path;
+  const step = (path.length - 1) / (maxPoints - 1);
+  return Array.from({ length: maxPoints }, (_, i) => path[Math.round(i * step)]);
+}
 
 const STATUS_BANNER: Record<TripStatus, string> = {
   pending: 'Cargando...',
@@ -59,6 +74,7 @@ export default function DriverTripScreen() {
   }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const { showToast } = useToast();
 
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [driverPosition, setDriverPosition] = useState<LatLng | null>(null);
@@ -69,6 +85,20 @@ export default function DriverTripScreen() {
   const [showNoShowModal, setShowNoShowModal] = useState(false);
   const [isReportingNoShow, setIsReportingNoShow] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [isLocating, setIsLocating] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [animatingPosition, setAnimatingPosition] = useState<LatLng | null>(null);
+  const lastPositionRef = useRef<(LatLng & { timestampMs: number }) | null>(null);
+  const simulationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastRouteOriginRef = useRef<LatLng | null>(null);
+  const lastRouteTargetRef = useRef<LatLng | null>(null);
+  const mapRef = useRef<MapView>(null);
+
+  useEffect(() => {
+    return () => {
+      if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+    };
+  }, []);
 
   usePolling(
     () => {
@@ -84,29 +114,38 @@ export default function DriverTripScreen() {
   const isPickupPhase = trip?.status === 'accepted';
   const isTripPhase = trip?.status === 'in_progress';
   const isOnTrip = isPickupPhase || isTripPhase;
+  const isTerminal = trip?.status === 'completed' || trip?.status === 'cancelled';
 
   usePolling(
     () => {
       if (!tripId) return;
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-        .then((position) => {
-          const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
-          setDriverPosition(coords);
-          sendDriverLocation(coords.lat, coords.lng, tripId).catch(() => {});
-        })
-        .catch(() => {});
+      (async () => {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const next = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          timestampMs: Date.now(),
+        };
+        const last = lastPositionRef.current;
+        if (last && !isPlausibleMovement(last, next)) return;
+        lastPositionRef.current = next;
+        setDriverPosition({ lat: next.lat, lng: next.lng });
+        sendDriverLocation(next.lat, next.lng, tripId).catch(() => {});
+      })().catch(() => {});
     },
     5000,
-    Boolean(tripId) && isOnTrip,
+    Boolean(tripId) && isOnTrip && !isSimulating,
   );
 
-  useEffect(() => {
-    if (trip?.status === 'cancelled') {
-      router.replace('/(driver)/(tabs)');
-    } else if (trip?.status === 'completed') {
-      router.replace('/(driver)/(tabs)');
-    }
-  }, [trip?.status]);
+  const rawDisplayPosition = animatingPosition ?? driverPosition;
+  const smoothedDriverPosition = useSmoothedPosition(
+    rawDisplayPosition,
+    animatingPosition ? SIMULATION_STEP_MS : 3000,
+  );
 
   useEffect(() => {
     if (trip?.status !== 'accepted' || !trip.arrivedAt) return;
@@ -121,29 +160,46 @@ export default function DriverTripScreen() {
     : null;
 
   useEffect(() => {
+    if (isSimulating) return;
     if (!isOnTrip || !driverPosition || !routeTarget) {
+      lastRouteOriginRef.current = null;
+      lastRouteTargetRef.current = null;
       setRoutePath([]);
       setRouteDurationText(null);
       return;
     }
+
+    const lastTarget = lastRouteTargetRef.current;
+    const targetChanged =
+      !lastTarget || lastTarget.lat !== routeTarget.lat || lastTarget.lng !== routeTarget.lng;
+    const lastOrigin = lastRouteOriginRef.current;
+    const originMoved =
+      !lastOrigin ||
+      distanceMeters(lastOrigin, driverPosition) >= ROUTE_RECOMPUTE_DISTANCE_METERS;
+    if (!targetChanged && !originMoved) return;
+
+    lastRouteOriginRef.current = driverPosition;
+    lastRouteTargetRef.current = routeTarget;
+
     let cancelled = false;
     getDirectionsRoute(driverPosition, routeTarget)
       .then((route) => {
-        if (cancelled) return;
-        setRoutePath(route?.path ?? []);
-        setRouteDurationText(route?.durationText ?? null);
+        if (cancelled || !route) return;
+        setRoutePath(route.path);
+        setRouteDurationText(route.durationText);
       })
-      .catch(() => {
-        if (!cancelled) {
-          setRoutePath([]);
-          setRouteDurationText(null);
-        }
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnTrip, driverPosition?.lat, driverPosition?.lng, routeTarget?.lat, routeTarget?.lng]);
+  }, [
+    isSimulating,
+    isOnTrip,
+    driverPosition?.lat,
+    driverPosition?.lng,
+    routeTarget?.lat,
+    routeTarget?.lng,
+  ]);
 
   const distanceToTarget =
     driverPosition && routeTarget ? distanceMeters(driverPosition, routeTarget) : null;
@@ -194,11 +250,105 @@ export default function DriverTripScreen() {
     setActionError(null);
     try {
       await completeTrip(tripId);
-      router.replace('/(driver)/(tabs)');
+      setTrip((current) => (current ? { ...current, status: 'completed' } : current));
+      showToast({
+        type: 'success',
+        title: 'Viaje completado',
+        message: 'El cobro se aplicó automáticamente.',
+      });
     } catch (error) {
       setActionError(getApiErrorMessage(error));
+    } finally {
       setIsUpdatingStatus(false);
     }
+  }
+
+  async function handleLocateMe() {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const next = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        timestampMs: Date.now(),
+      };
+      lastPositionRef.current = next;
+      setDriverPosition({ lat: next.lat, lng: next.lng });
+      if (tripId) sendDriverLocation(next.lat, next.lng, tripId).catch(() => {});
+      mapRef.current?.animateToRegion(
+        {
+          latitude: next.lat,
+          longitude: next.lng,
+          latitudeDelta: LOCATE_ZOOM_DELTA,
+          longitudeDelta: LOCATE_ZOOM_DELTA,
+        },
+        500,
+      );
+    } catch {
+    } finally {
+      setIsLocating(false);
+    }
+  }
+
+  async function handleSimulateArrival() {
+    if (!routeTarget) return;
+    if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+
+    setIsSimulating(true);
+
+    let simulationOrigin = driverPosition;
+    if (!simulationOrigin) {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const position = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          simulationOrigin = { lat: position.coords.latitude, lng: position.coords.longitude };
+        }
+      } catch {}
+    }
+    if (!simulationOrigin) {
+      simulationOrigin = { lat: routeTarget.lat + 0.02, lng: routeTarget.lng + 0.02 };
+    }
+    setDriverPosition(simulationOrigin);
+
+    const route = await getDirectionsRoute(simulationOrigin, routeTarget).catch(() => null);
+    const fullPath =
+      route && route.path.length > 1 ? route.path : [simulationOrigin, routeTarget];
+    setRoutePath(fullPath);
+    setRouteDurationText(route?.durationText ?? null);
+
+    const steps = resamplePath(fullPath, SIMULATION_MAX_STEPS).slice(1);
+    if (steps.length === 0) steps.push(routeTarget);
+
+    let index = 0;
+
+    simulationTimerRef.current = setInterval(() => {
+      const point = steps[index];
+      setAnimatingPosition(point);
+      sendDriverLocation(point.lat, point.lng, tripId).catch(() => {});
+      index += 1;
+
+      if (index >= steps.length) {
+        if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+        simulationTimerRef.current = null;
+        lastPositionRef.current = { ...routeTarget, timestampMs: Date.now() };
+        lastRouteOriginRef.current = routeTarget;
+        lastRouteTargetRef.current = routeTarget;
+        setAnimatingPosition(null);
+        setDriverPosition(routeTarget);
+        setIsSimulating(false);
+        showToast({
+          type: 'success',
+          message: 'Ubicación simulada en el punto de destino.',
+        });
+      }
+    }, SIMULATION_STEP_MS);
   }
 
   async function handleReportNoShow() {
@@ -232,20 +382,31 @@ export default function DriverTripScreen() {
     Math.floor((remainingMs % 60000) / 1000),
   ).padStart(2, '0')}`;
 
-  const mapCenter = driverPosition ?? routeTarget ?? DEFAULT_CENTER;
+  const mapCenter = rawDisplayPosition ?? routeTarget ?? DEFAULT_CENTER;
   const markers: TripMapMarker[] = [];
-  if (driverPosition) markers.push({ position: driverPosition, color: colors.tint });
-  if (routeTarget) markers.push({ position: routeTarget });
+  if (smoothedDriverPosition)
+    markers.push({
+      id: 'driver',
+      position: smoothedDriverPosition,
+      color: colors.driverLocation,
+      pulse: true,
+    });
+  if (routeTarget) markers.push({ id: 'target', position: routeTarget });
 
   return (
     <View style={styles.container}>
       <TripMap
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         center={mapCenter}
         markers={markers}
         routePath={routePath}
         routeColor={colors.tint}
       />
+
+      {smoothedDriverPosition && (
+        <LocationLegend color={colors.driverLocation} style={styles.locationLegend} />
+      )}
 
       <View style={[styles.banner, { backgroundColor: colors.success }]}>
         <View style={[styles.bannerRow, styles.transparentBackground]}>
@@ -261,139 +422,204 @@ export default function DriverTripScreen() {
         </View>
       </View>
 
-      <View style={[styles.sheet, { backgroundColor: colors.background }, SHEET_SHADOW]}>
-        {(isPickupPhase || isTripPhase) && (
-          <View style={styles.passengerRow}>
-            <View style={[styles.avatar, { backgroundColor: colors.surfaceHighlight }]}>
-              <Text style={[styles.avatarText, { color: colors.tint }]}>
-                {passengerName?.charAt(0).toUpperCase() ?? '?'}
-              </Text>
-            </View>
-            <View>
-              <Text style={[styles.passengerLabel, { color: colors.textSecondary }]}>Pasajero</Text>
-              <Text style={styles.passengerName}>{passengerName ?? 'Pasajero'}</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={[styles.labelRow, styles.transparentBackground]}>
-          <Ionicons
-            name={trip?.status === 'in_progress' ? 'flag-outline' : 'navigate-outline'}
-            size={12}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {trip?.status === 'in_progress' ? 'DESTINO' : 'ORIGEN'}
-          </Text>
-        </View>
-        <Text style={styles.addressText}>
-          {trip?.status === 'in_progress'
-            ? (trip?.destinationAddress ?? '—')
-            : (trip?.originAddress ?? '—')}
-        </Text>
-
-        <View style={styles.fareRow}>
-          <View style={[styles.labelRow, styles.transparentBackground]}>
-            <Ionicons name="cash-outline" size={12} color={colors.textSecondary} />
-            <Text style={[styles.fareLabel, { color: colors.textSecondary }]}>TARIFA</Text>
-          </View>
-          <Text style={styles.fareValue}>
-            {trip ? `L. ${trip.fare.toFixed(2)} · ${trip.distanceKm.toFixed(1)} km` : '—'}
-          </Text>
-        </View>
-
-        {actionError && (
-          <View style={[styles.noticeRow, styles.transparentBackground]}>
-            <Ionicons name="alert-circle" size={14} color="#C0392B" />
-            <Text style={[styles.errorText, { color: '#C0392B' }]}>{actionError}</Text>
-          </View>
-        )}
-
-        <View style={styles.actionsRow}>
-          <Button
-            variant="secondary"
-            onPress={handleCall}
-            disabled={!canCall}
-            style={styles.actionButton}
-          >
-            <View style={[styles.buttonContent, styles.transparentBackground]}>
-              <Ionicons name="call-outline" size={16} color={colors.text} />
-              <Text style={{ color: colors.text, fontWeight: '600' }}>Llamar</Text>
-            </View>
-          </Button>
-
-          {trip?.status === 'accepted' && !trip.arrivedAt && (
-            <Button
-              onPress={handleMarkArrived}
-              disabled={isUpdatingStatus || !isNearTarget}
-              style={styles.actionButton}
-            >
-              <View style={[styles.buttonContent, styles.transparentBackground]}>
-                <Ionicons name="location-outline" size={16} color="#fff" />
-                <Text style={styles.primaryButtonText}>Llegué</Text>
-              </View>
-            </Button>
-          )}
-
-          {trip?.status === 'accepted' && trip.arrivedAt && (
-            <Button onPress={handleStart} disabled={isUpdatingStatus} style={styles.actionButton}>
-              <View style={[styles.buttonContent, styles.transparentBackground]}>
-                <Ionicons name="play-outline" size={16} color="#fff" />
-                <Text style={styles.primaryButtonText}>Iniciar viaje</Text>
-              </View>
-            </Button>
-          )}
-
-          {trip?.status === 'in_progress' && (
-            <Button
-              onPress={handleComplete}
-              disabled={isUpdatingStatus || !isNearTarget}
-              style={[styles.actionButton, { backgroundColor: colors.success }]}
-            >
-              <View style={[styles.buttonContent, styles.transparentBackground]}>
-                <Ionicons name="checkmark-done-outline" size={16} color="#fff" />
-                <Text style={styles.primaryButtonText}>Completar viaje</Text>
-              </View>
-            </Button>
-          )}
-        </View>
-
-        {isPickupPhase && !trip?.arrivedAt && !isNearTarget && (
-          <View style={[styles.hintRow, styles.transparentBackground]}>
-            <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              Acércate al punto de recogida para poder marcar tu llegada.
-            </Text>
-          </View>
-        )}
-
-        {isTripPhase && !isNearTarget && (
-          <View style={[styles.hintRow, styles.transparentBackground]}>
-            <Ionicons name="information-circle-outline" size={13} color={colors.textSecondary} />
-            <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-              Acércate al destino para poder completar el viaje.
-            </Text>
-          </View>
-        )}
-
-        {isWaitingForPassenger &&
-          (!canReportNoShow ? (
-            <View style={[styles.hintRow, styles.transparentBackground]}>
-              <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
-              <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-                Esperando al pasajero... podrás reportar que no llegó en {remainingLabel}.
-              </Text>
-            </View>
+      {!isTerminal && (
+        <Pressable
+          style={[styles.locateButton, { backgroundColor: colors.background }]}
+          onPress={handleLocateMe}
+          disabled={isLocating || isSimulating}
+        >
+          {isLocating ? (
+            <ActivityIndicator size="small" color={colors.tint} />
           ) : (
-            <Pressable
-              style={[styles.hintRow, styles.transparentBackground]}
-              onPress={() => setShowNoShowModal(true)}
-              disabled={isReportingNoShow}
+            <Ionicons name="locate" size={20} color={colors.tint} />
+          )}
+        </Pressable>
+      )}
+
+      <View style={[styles.sheet, { backgroundColor: colors.background }, SHEET_SHADOW]}>
+        {isTerminal && trip ? (
+          <View style={styles.terminalBlock}>
+            <View style={[styles.terminalIconCircle, { backgroundColor: colors.surfaceHighlight }]}>
+              <Ionicons
+                name={STATUS_ICON[trip.status]}
+                size={28}
+                color={trip.status === 'cancelled' ? colors.textSecondary : colors.success}
+              />
+            </View>
+            <Text style={styles.terminalTitle}>{bannerText}</Text>
+            <Button
+              onPress={() => router.replace('/(driver)/(tabs)')}
+              style={styles.backToHomeButton}
             >
-              <Ionicons name="alert-outline" size={13} color="#DC2626" />
-              <Text style={styles.noShowText}>El pasajero no llegó</Text>
-            </Pressable>
-          ))}
+              <View style={[styles.buttonContent, styles.transparentBackground]}>
+                <Ionicons name="home-outline" size={17} color="#fff" />
+                <Text style={styles.primaryButtonText}>Volver a inicio</Text>
+              </View>
+            </Button>
+          </View>
+        ) : (
+          <>
+            {(isPickupPhase || isTripPhase) && (
+              <View style={styles.passengerRow}>
+                <View style={[styles.avatar, { backgroundColor: colors.surfaceHighlight }]}>
+                  <Text style={[styles.avatarText, { color: colors.tint }]}>
+                    {passengerName?.charAt(0).toUpperCase() ?? '?'}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.passengerLabel, { color: colors.textSecondary }]}>
+                    Pasajero
+                  </Text>
+                  <Text style={styles.passengerName}>{passengerName ?? 'Pasajero'}</Text>
+                </View>
+              </View>
+            )}
+
+            <View style={[styles.labelRow, styles.transparentBackground]}>
+              <Ionicons
+                name={trip?.status === 'in_progress' ? 'flag-outline' : 'navigate-outline'}
+                size={12}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                {trip?.status === 'in_progress' ? 'DESTINO' : 'ORIGEN'}
+              </Text>
+            </View>
+            <Text style={styles.addressText}>
+              {trip?.status === 'in_progress'
+                ? (trip?.destinationAddress ?? '—')
+                : (trip?.originAddress ?? '—')}
+            </Text>
+
+            <View style={styles.fareRow}>
+              <View style={[styles.labelRow, styles.transparentBackground]}>
+                <Ionicons name="cash-outline" size={12} color={colors.textSecondary} />
+                <Text style={[styles.fareLabel, { color: colors.textSecondary }]}>TARIFA</Text>
+              </View>
+              <Text style={styles.fareValue}>
+                {trip ? `L. ${trip.fare.toFixed(2)} · ${trip.distanceKm.toFixed(1)} km` : '—'}
+              </Text>
+            </View>
+
+            {actionError && (
+              <View style={[styles.noticeRow, styles.transparentBackground]}>
+                <Ionicons name="alert-circle" size={14} color="#C0392B" />
+                <Text style={[styles.errorText, { color: '#C0392B' }]}>{actionError}</Text>
+              </View>
+            )}
+
+            <View style={styles.actionsRow}>
+              <Button
+                variant="secondary"
+                onPress={handleCall}
+                disabled={!canCall}
+                style={styles.actionButton}
+              >
+                <View style={[styles.buttonContent, styles.transparentBackground]}>
+                  <Ionicons name="call-outline" size={16} color={colors.text} />
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>Llamar</Text>
+                </View>
+              </Button>
+
+              {trip?.status === 'accepted' && !trip.arrivedAt && (
+                <Button
+                  onPress={handleMarkArrived}
+                  disabled={isUpdatingStatus || !isNearTarget}
+                  style={styles.actionButton}
+                >
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="location-outline" size={16} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Llegué</Text>
+                  </View>
+                </Button>
+              )}
+
+              {trip?.status === 'accepted' && trip.arrivedAt && (
+                <Button
+                  onPress={handleStart}
+                  disabled={isUpdatingStatus}
+                  style={styles.actionButton}
+                >
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="play-outline" size={16} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Iniciar viaje</Text>
+                  </View>
+                </Button>
+              )}
+
+              {trip?.status === 'in_progress' && (
+                <Button
+                  onPress={handleComplete}
+                  disabled={isUpdatingStatus || !isNearTarget}
+                  style={[styles.actionButton, { backgroundColor: colors.success }]}
+                >
+                  <View style={[styles.buttonContent, styles.transparentBackground]}>
+                    <Ionicons name="checkmark-done-outline" size={16} color="#fff" />
+                    <Text style={styles.primaryButtonText}>Completar viaje</Text>
+                  </View>
+                </Button>
+              )}
+            </View>
+
+            {DEMO_MODE_ENABLED && isOnTrip && (
+              <Pressable
+                style={styles.simulateButton}
+                onPress={handleSimulateArrival}
+                disabled={isSimulating}
+              >
+                <Ionicons name="navigate-circle-outline" size={14} color={colors.textSecondary} />
+                <Text style={[styles.simulateButtonText, { color: colors.textSecondary }]}>
+                  {isSimulating ? 'Simulando...' : 'Simular llegada (demo)'}
+                </Text>
+              </Pressable>
+            )}
+
+            {isPickupPhase && !trip?.arrivedAt && !isNearTarget && (
+              <View style={[styles.hintRow, styles.transparentBackground]}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={13}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                  Acércate al punto de recogida para poder marcar tu llegada.
+                </Text>
+              </View>
+            )}
+
+            {isTripPhase && !isNearTarget && (
+              <View style={[styles.hintRow, styles.transparentBackground]}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={13}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                  Acércate al destino para poder completar el viaje.
+                </Text>
+              </View>
+            )}
+
+            {isWaitingForPassenger &&
+              (!canReportNoShow ? (
+                <View style={[styles.hintRow, styles.transparentBackground]}>
+                  <Ionicons name="time-outline" size={13} color={colors.textSecondary} />
+                  <Text style={[styles.hintText, { color: colors.textSecondary }]}>
+                    Esperando al pasajero... podrás reportar que no llegó en {remainingLabel}.
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  style={[styles.hintRow, styles.transparentBackground]}
+                  onPress={() => setShowNoShowModal(true)}
+                  disabled={isReportingNoShow}
+                >
+                  <Ionicons name="alert-outline" size={13} color="#DC2626" />
+                  <Text style={styles.noShowText}>El pasajero no llegó</Text>
+                </Pressable>
+              ))}
+          </>
+        )}
       </View>
 
       <ReportNoShowModal
@@ -429,6 +655,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+  locationLegend: {
+    position: 'absolute',
+    top: 110,
+    left: 16,
+  },
+  locateButton: {
+    position: 'absolute',
+    top: 110,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   sheet: {
     position: 'absolute',
     bottom: 0,
@@ -444,6 +689,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 14,
+  },
+  terminalBlock: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  terminalIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  terminalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  backToHomeButton: {
+    marginTop: 16,
+    width: '100%',
   },
   avatar: {
     width: 40,
@@ -506,6 +772,18 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  simulateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 4,
+  },
+  simulateButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   actionButton: {
     flex: 1,

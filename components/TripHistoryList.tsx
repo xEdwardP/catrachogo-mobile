@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet } from 'react-native';
 
 import { Text, View } from '@/components/Themed';
+import { TripDetailModal } from '@/components/TripDetailModal';
 import { Card } from '@/components/ui/Card';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripStatusLabels';
-import { getTripHistory, type Trip } from '@/lib/api/trips';
+import { getTripHistory, type Trip, type TripHistoryItem } from '@/lib/api/trips';
 
 const PAGE_SIZE = 20;
 
@@ -31,12 +32,13 @@ export function TripHistoryList({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
 
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [trips, setTrips] = useState<TripHistoryItem[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailTrip, setDetailTrip] = useState<TripHistoryItem | null>(null);
 
   const loadPage = useCallback((pageToLoad: number) => {
     getTripHistory(pageToLoad, PAGE_SIZE)
@@ -105,8 +107,7 @@ export function TripHistoryList({
               <Card style={styles.card}>
                 <Pressable
                   style={styles.cardMain}
-                  onPress={() => onPressTrip(item)}
-                  disabled={!trackable}
+                  onPress={() => (trackable ? onPressTrip(item) : setDetailTrip(item))}
                 >
                   <View style={[styles.cardHeader, styles.transparentBackground]}>
                     <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
@@ -116,9 +117,6 @@ export function TripHistoryList({
                     </View>
                     <Text style={styles.fareText}>L. {item.fare.toFixed(2)}</Text>
                   </View>
-                  <Text style={styles.destinationText} numberOfLines={1}>
-                    {item.destinationAddress}
-                  </Text>
                   {item.requestedAt && (
                     <Text style={[styles.dateText, { color: colors.textSecondary }]}>
                       {new Date(item.requestedAt).toLocaleString('es-HN')}
@@ -141,6 +139,8 @@ export function TripHistoryList({
           }}
         />
       )}
+
+      <TripDetailModal trip={detailTrip} onDismiss={() => setDetailTrip(null)} />
     </View>
   );
 }
@@ -196,9 +196,6 @@ const styles = StyleSheet.create({
   fareText: {
     fontSize: 14,
     fontWeight: '700',
-  },
-  destinationText: {
-    fontSize: 14,
   },
   dateText: {
     fontSize: 12,

@@ -19,12 +19,7 @@ import { formatRelativeTime } from '@/lib/time/relativeTime';
 
 const PAGE_SIZE = 20;
 
-const TRIP_NOTIFICATION_TYPES = new Set([
-  'trip_accepted',
-  'trip_started',
-  'trip_completed',
-  'trip_cancelled',
-]);
+const TRIP_NOTIFICATION_TYPES = new Set(['trip_accepted', 'trip_started', 'driver_arrived']);
 
 const NOTIFICATION_TYPE_ICONS: Record<
   NotificationType,
@@ -37,6 +32,7 @@ const NOTIFICATION_TYPE_ICONS: Record<
   withdrawal_resolved: { read: 'cash-outline', unread: 'cash' },
   driver_verification_updated: { read: 'shield-checkmark-outline', unread: 'shield-checkmark' },
   rating_received: { read: 'star-outline', unread: 'star' },
+  driver_arrived: { read: 'navigate-circle-outline', unread: 'navigate-circle' },
 };
 
 export default function NotificationsScreen() {
@@ -98,19 +94,13 @@ export default function NotificationsScreen() {
       markNotificationRead(notification.id).catch(() => {});
     }
 
+    if (session?.role !== 'driver') return;
     if (!TRIP_NOTIFICATION_TYPES.has(notification.type) || !notification.relatedTripId) return;
 
-    if (session?.role === 'passenger') {
-      router.push({
-        pathname: '/(passenger)/trip/[tripId]',
-        params: { tripId: notification.relatedTripId },
-      });
-    } else if (session?.role === 'driver') {
-      router.push({
-        pathname: '/(driver)/trip/[tripId]',
-        params: { tripId: notification.relatedTripId },
-      });
-    }
+    router.push({
+      pathname: '/(driver)/trip/[tripId]',
+      params: { tripId: notification.relatedTripId },
+    });
   }
 
   return (
