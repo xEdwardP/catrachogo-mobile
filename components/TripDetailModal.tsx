@@ -7,10 +7,10 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { getCancellationReasonLabel } from '@/constants/CancellationReasons';
 import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripStatusLabels';
-import type { Trip } from '@/lib/api/trips';
+import type { TripHistoryItem } from '@/lib/api/trips';
 
 type Props = {
-  trip: Trip | null;
+  trip: TripHistoryItem | null;
   onDismiss: () => void;
 };
 
@@ -38,22 +38,6 @@ export function TripDetailModal({ trip, onDismiss }: Props) {
             </Pressable>
           </View>
 
-          <View style={[styles.row, styles.transparentBackground]}>
-            <Ionicons name="navigate-outline" size={14} color={colors.textSecondary} />
-            <View style={styles.rowText}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>ORIGEN</Text>
-              <Text style={styles.value}>{trip.originAddress || '—'}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.row, styles.transparentBackground]}>
-            <Ionicons name="flag-outline" size={14} color={colors.textSecondary} />
-            <View style={styles.rowText}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>DESTINO</Text>
-              <Text style={styles.value}>{trip.destinationAddress || '—'}</Text>
-            </View>
-          </View>
-
           <View style={[styles.fareRow, styles.transparentBackground]}>
             <View style={[styles.rowText, styles.transparentBackground]}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>TARIFA</Text>
@@ -77,6 +61,29 @@ export function TripDetailModal({ trip, onDismiss }: Props) {
                 </Text>
               </View>
             </View>
+          )}
+
+          {trip.status === 'completed' && (
+            <>
+              {trip.completedAt && (
+                <View style={[styles.row, styles.transparentBackground]}>
+                  <Ionicons name="checkmark-done-outline" size={14} color={colors.textSecondary} />
+                  <View style={styles.rowText}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>COMPLETADO</Text>
+                    <Text style={styles.value}>
+                      {new Date(trip.completedAt).toLocaleString('es-HN')}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              <View style={[styles.row, styles.transparentBackground]}>
+                <Ionicons name="star-outline" size={14} color={colors.textSecondary} />
+                <View style={styles.rowText}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>CALIFICADO</Text>
+                  <Text style={styles.value}>{trip.ratedByMe ? 'Sí' : 'No'}</Text>
+                </View>
+              </View>
+            </>
           )}
 
           {trip.status === 'cancelled' && trip.cancelReason && (

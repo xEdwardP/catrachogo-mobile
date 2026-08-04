@@ -26,11 +26,16 @@ import {
   type TripStatus,
 } from '@/lib/api/trips';
 import { getDirectionsRoute, type LatLng } from '@/lib/directions/client';
+import { distanceMeters } from '@/lib/geo/distance';
 import { usePolling } from '@/lib/hooks/usePolling';
 import { useSmoothedPosition } from '@/lib/hooks/useSmoothedPosition';
 
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
 const SEARCH_TIMEOUT_MS = 60_000;
+const DEMO_MODE_ENABLED = process.env.EXPO_PUBLIC_ENABLE_DEMO_MODE === 'true';
+const DRIVER_LOCATION_POLL_MS = DEMO_MODE_ENABLED ? 350 : 4000;
+const DRIVER_POSITION_SMOOTH_MS = DEMO_MODE_ENABLED ? 350 : 3000;
+const ROUTE_RECOMPUTE_DISTANCE_METERS = 120;
 
 const STATUS_BANNER: Record<TripStatus, string> = {
   pending: 'Buscando un conductor cercano...',
@@ -82,6 +87,8 @@ export default function TripInProgressScreen() {
   const fetchedDriverIdRef = useRef<string | null>(null);
   const searchStartRef = useRef(Date.now());
   const autoCancelTriggeredRef = useRef(false);
+  const lastRouteOriginRef = useRef<LatLng | null>(null);
+  const lastRouteTargetRef = useRef<LatLng | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   usePolling(
@@ -115,11 +122,11 @@ export default function TripInProgressScreen() {
         })
         .catch(() => {});
     },
-    4000,
+    DRIVER_LOCATION_POLL_MS,
     Boolean(tripId) && isTrackable,
   );
 
-  const smoothedDriverPosition = useSmoothedPosition(driverPosition, 3000);
+  const smoothedDriverPosition = useSmoothedPosition(driverPosition, DRIVER_POSITION_SMOOTH_MS);
 
   const isSearching = trip?.status === 'pending';
   useEffect(() => {
@@ -152,23 +159,33 @@ export default function TripInProgressScreen() {
 
   useEffect(() => {
     if (!isTrackable || !driverPosition || !routeTarget) {
+      lastRouteOriginRef.current = null;
+      lastRouteTargetRef.current = null;
       setRoutePath([]);
       setRouteDurationText(null);
       return;
     }
+
+    const lastTarget = lastRouteTargetRef.current;
+    const targetChanged =
+      !lastTarget || lastTarget.lat !== routeTarget.lat || lastTarget.lng !== routeTarget.lng;
+    const lastOrigin = lastRouteOriginRef.current;
+    const originMoved =
+      !lastOrigin ||
+      distanceMeters(lastOrigin, driverPosition) >= ROUTE_RECOMPUTE_DISTANCE_METERS;
+    if (!targetChanged && !originMoved) return;
+
+    lastRouteOriginRef.current = driverPosition;
+    lastRouteTargetRef.current = routeTarget;
+
     let cancelled = false;
     getDirectionsRoute(driverPosition, routeTarget)
       .then((route) => {
-        if (cancelled) return;
-        setRoutePath(route?.path ?? []);
-        setRouteDurationText(route?.durationText ?? null);
+        if (cancelled || !route) return;
+        setRoutePath(route.path);
+        setRouteDurationText(route.durationText);
       })
-      .catch(() => {
-        if (!cancelled) {
-          setRoutePath([]);
-          setRouteDurationText(null);
-        }
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -252,8 +269,14 @@ export default function TripInProgressScreen() {
   const mapCenter =
     driverPosition ?? (trip ? { lat: trip.originLat, lng: trip.originLng } : DEFAULT_CENTER);
   const markers: TripMapMarker[] = [];
-  if (smoothedDriverPosition) markers.push({ position: smoothedDriverPosition, color: colors.tint });
-  if (routeTarget) markers.push({ position: routeTarget });
+  if (smoothedDriverPosition)
+    markers.push({
+      id: 'driver',
+      position: smoothedDriverPosition,
+      color: colors.success,
+      pulse: true,
+    });
+  if (routeTarget) markers.push({ id: 'target', position: routeTarget });
 
   return (
     <View style={styles.container}>

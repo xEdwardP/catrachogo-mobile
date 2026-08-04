@@ -6,8 +6,10 @@ import { ActivityIndicator, Image, Pressable, StyleSheet } from 'react-native';
 import type MapView from 'react-native-maps';
 
 import { FullscreenMapViewer } from '@/components/FullscreenMapViewer';
+import { LocationLegend } from '@/components/LocationLegend';
 import { NotificationBell } from '@/components/NotificationBell';
 import { Text, View } from '@/components/Themed';
+import { TripDetailModal } from '@/components/TripDetailModal';
 import { TripMap } from '@/components/TripMap';
 import { Card } from '@/components/ui/Card';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -16,7 +18,7 @@ import { TRIP_STATUS_BADGE_COLORS, TRIP_STATUS_LABELS } from '@/constants/TripSt
 import { getApiStatusCode } from '@/lib/api/client';
 import { getDriverSummary, updateAvailability, type DriverSummary } from '@/lib/api/drivers';
 import { getPendingRequest } from '@/lib/api/drivers';
-import { getTripHistory, type Trip } from '@/lib/api/trips';
+import { getTripHistory, type TripHistoryItem } from '@/lib/api/trips';
 import { sendDriverLocation } from '@/lib/api/tracking';
 import { useCurrentLocation, type LatLng } from '@/lib/location/useCurrentLocation';
 import { usePolling } from '@/lib/hooks/usePolling';
@@ -25,6 +27,10 @@ import { useOpenDrawer } from '@/lib/navigation/useOpenDrawer';
 const RECENT_TRIPS_LIMIT = 5;
 const DEFAULT_CENTER = { lat: 15.5, lng: -88.03 };
 const LOCATE_ZOOM_DELTA = 0.005;
+
+function isTripTrackable(trip: TripHistoryItem) {
+  return trip.status === 'accepted' || trip.status === 'in_progress';
+}
 
 const CARD_SHADOW = {
   shadowColor: '#000',
@@ -49,7 +55,8 @@ export default function DriverHomeScreen() {
   const [isAvailable, setIsAvailable] = useState(false);
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [recentTrips, setRecentTrips] = useState<Trip[]>([]);
+  const [recentTrips, setRecentTrips] = useState<TripHistoryItem[]>([]);
+  const [detailTrip, setDetailTrip] = useState<TripHistoryItem | null>(null);
 
   const fetchSummary = useCallback(() => {
     getDriverSummary()
@@ -151,6 +158,17 @@ export default function DriverHomeScreen() {
     }
   }
 
+  function handlePressRecentTrip(trip: TripHistoryItem) {
+    if (isTripTrackable(trip)) {
+      router.push({
+        pathname: '/(driver)/trip/[tripId]',
+        params: { tripId: trip.id },
+      });
+      return;
+    }
+    setDetailTrip(trip);
+  }
+
   const mapCenter = location ?? DEFAULT_CENTER;
 
   return (
@@ -244,7 +262,7 @@ export default function DriverHomeScreen() {
             ref={mapRef}
             style={styles.map}
             center={mapCenter}
-            markers={location ? [{ position: location }] : []}
+            markers={location ? [{ position: location, color: colors.driverLocation, pulse: true }] : []}
           />
           {isAvailable && (
             <View style={[styles.searchingBadge, { backgroundColor: colors.background }]}>
@@ -253,6 +271,9 @@ export default function DriverHomeScreen() {
                 Buscando viajes cercanos
               </Text>
             </View>
+          )}
+          {location && (
+            <LocationLegend color={colors.driverLocation} style={styles.locationLegend} />
           )}
           <Pressable
             style={[styles.expandButton, { backgroundColor: colors.background }]}
@@ -278,7 +299,7 @@ export default function DriverHomeScreen() {
         visible={isMapExpanded}
         onDismiss={() => setIsMapExpanded(false)}
         center={mapCenter}
-        markers={location ? [{ position: location }] : []}
+        markers={location ? [{ position: location, color: colors.driverLocation, pulse: true }] : []}
       />
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ÚLTIMOS VIAJES</Text>
@@ -293,21 +314,25 @@ export default function DriverHomeScreen() {
         recentTrips.map((trip) => {
           const badgeColors = TRIP_STATUS_BADGE_COLORS[trip.status];
           return (
-            <Card key={trip.id} style={styles.tripRow}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <Text style={styles.tripDestination} numberOfLines={1}>
-                {trip.destinationAddress}
-              </Text>
-              <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
-                <Text style={[styles.badgeText, { color: badgeColors.text }]}>
-                  {TRIP_STATUS_LABELS[trip.status]}
+            <Pressable key={trip.id} onPress={() => handlePressRecentTrip(trip)}>
+              <Card style={styles.tripRow}>
+                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                <Text style={[styles.tripDate, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {new Date(trip.requestedAt).toLocaleDateString('es-HN')}
                 </Text>
-              </View>
-              <Text style={styles.tripFare}>L. {trip.fare.toFixed(0)}</Text>
-            </Card>
+                <View style={[styles.badge, { backgroundColor: badgeColors.background }]}>
+                  <Text style={[styles.badgeText, { color: badgeColors.text }]}>
+                    {TRIP_STATUS_LABELS[trip.status]}
+                  </Text>
+                </View>
+                <Text style={styles.tripFare}>L. {trip.fare.toFixed(0)}</Text>
+              </Card>
+            </Pressable>
           );
         })
       )}
+
+      <TripDetailModal trip={detailTrip} onDismiss={() => setDetailTrip(null)} />
     </View>
   );
 }
@@ -433,6 +458,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  locationLegend: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+  },
   locateButton: {
     position: 'absolute',
     top: 10,
@@ -475,7 +505,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  tripDestination: {
+  tripDate: {
     flex: 1,
     fontSize: 13,
   },

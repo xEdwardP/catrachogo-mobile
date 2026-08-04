@@ -107,11 +107,9 @@ export default function RequestTripScreen() {
     let cancelled = false;
     getDirectionsRoute(origin, destination)
       .then((route) => {
-        if (!cancelled) setRoutePath(route?.path ?? []);
+        if (!cancelled && route) setRoutePath(route.path);
       })
-      .catch(() => {
-        if (!cancelled) setRoutePath([]);
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -191,7 +189,7 @@ export default function RequestTripScreen() {
         style={StyleSheet.absoluteFill}
         center={mapCenter}
         markers={[
-          ...(origin ? [{ position: origin }] : []),
+          ...(origin ? [{ position: origin, color: colors.success, pulse: true }] : []),
           { position: destination, color: colors.tint },
         ]}
         routePath={routePath}

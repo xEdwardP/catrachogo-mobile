@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
@@ -21,14 +21,14 @@ Notifications.setNotificationHandler({
 
 const TRIP_NOTIFICATION_TYPES = new Set(['trip_accepted', 'trip_started', 'driver_arrived']);
 
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 function handleNotificationData(session: StoredSession, data: Record<string, unknown>) {
   const type = typeof data.type === 'string' ? data.type : undefined;
   const relatedTripId = typeof data.relatedTripId === 'string' ? data.relatedTripId : undefined;
 
   if (type && TRIP_NOTIFICATION_TYPES.has(type) && relatedTripId) {
-    if (session.role === 'passenger') {
-      router.push({ pathname: '/(passenger)/trip/[tripId]', params: { tripId: relatedTripId } });
-    } else if (session.role === 'driver') {
+    if (session.role === 'driver') {
       router.push({ pathname: '/(driver)/trip/[tripId]', params: { tripId: relatedTripId } });
     }
     return;
@@ -60,7 +60,7 @@ export function usePushNotifications() {
   sessionRef.current = session;
 
   useEffect(() => {
-    if (!session || Platform.OS !== 'android' || !Device.isDevice) return;
+    if (!session || Platform.OS !== 'android' || !Device.isDevice || IS_EXPO_GO) return;
 
     let cancelled = false;
 

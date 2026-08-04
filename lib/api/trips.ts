@@ -130,8 +130,17 @@ export type PaginatedResult<T> = {
   limit: number;
 };
 
-export async function getTripHistory(page: number, limit: number): Promise<PaginatedResult<Trip>> {
-  const { data } = await apiClient.get<PaginatedResult<Trip>>('/trips/history', {
+export type TripHistoryItem = Trip & {
+  ratedByMe: boolean;
+  driverEarnings?: number;
+  platformFee?: number;
+};
+
+export async function getTripHistory(
+  page: number,
+  limit: number,
+): Promise<PaginatedResult<TripHistoryItem>> {
+  const { data } = await apiClient.get<PaginatedResult<TripHistoryItem>>('/trips/history', {
     params: { page, limit },
   });
   return data;

@@ -72,7 +72,7 @@ export function MapLocationPickerModal({
 
       <Ionicons
         name="location"
-        size={36}
+        size={40}
         color={colors.tint}
         style={styles.pin}
         pointerEvents="none"
@@ -84,6 +84,11 @@ export function MapLocationPickerModal({
       >
         <Ionicons name="close" size={22} color={colors.text} />
       </Pressable>
+
+      <View style={[styles.instructionBanner, { backgroundColor: colors.background }]}>
+        <Ionicons name="navigate-circle-outline" size={16} color={colors.tint} />
+        <Text style={styles.instructionText}>Selecciona el punto al que deseas ir</Text>
+      </View>
 
       <View style={[styles.bottomBar, { backgroundColor: colors.background }]}>
         <View style={styles.addressRow}>
@@ -112,8 +117,31 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginLeft: -18,
-    marginTop: -36,
+    marginLeft: -20,
+    marginTop: -40,
+  },
+  instructionBanner: {
+    position: 'absolute',
+    top: 56,
+    left: 72,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 44,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
   },
   closeButton: {
     position: 'absolute',
