@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -10,9 +10,24 @@ import Colors from '@/constants/Colors';
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
-if (WEB_CLIENT_ID) {
-  GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
+const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
+
+function loadGoogleSignIn(): GoogleSignInModule | null {
+  if (IS_EXPO_GO) return null;
+  try {
+    const loaded: GoogleSignInModule = require('@react-native-google-signin/google-signin');
+    if (WEB_CLIENT_ID) {
+      loaded.GoogleSignin.configure({ webClientId: WEB_CLIENT_ID });
+    }
+    return loaded;
+  } catch {
+    return null;
+  }
 }
+
+const googleSignIn = loadGoogleSignIn();
 
 type Props = {
   onSuccess: (idToken: string) => void;
@@ -24,11 +39,13 @@ export function GoogleSignInButton({ onSuccess, onError }: Props) {
   const colors = Colors[colorScheme];
   const [isRequesting, setIsRequesting] = useState(false);
 
-  if (!WEB_CLIENT_ID) {
+  if (!WEB_CLIENT_ID || !googleSignIn) {
     return null;
   }
 
   async function handlePress() {
+    if (!googleSignIn) return;
+    const { GoogleSignin, isErrorWithCode, statusCodes } = googleSignIn;
     setIsRequesting(true);
     try {
       await GoogleSignin.hasPlayServices();

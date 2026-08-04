@@ -94,19 +94,13 @@ export default function NotificationsScreen() {
       markNotificationRead(notification.id).catch(() => {});
     }
 
+    if (session?.role !== 'driver') return;
     if (!TRIP_NOTIFICATION_TYPES.has(notification.type) || !notification.relatedTripId) return;
 
-    if (session?.role === 'passenger') {
-      router.push({
-        pathname: '/(passenger)/trip/[tripId]',
-        params: { tripId: notification.relatedTripId },
-      });
-    } else if (session?.role === 'driver') {
-      router.push({
-        pathname: '/(driver)/trip/[tripId]',
-        params: { tripId: notification.relatedTripId },
-      });
-    }
+    router.push({
+      pathname: '/(driver)/trip/[tripId]',
+      params: { tripId: notification.relatedTripId },
+    });
   }
 
   return (

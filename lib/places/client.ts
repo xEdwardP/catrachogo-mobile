@@ -41,7 +41,7 @@ export async function autocompletePlaces(
       input,
       includedRegionCodes: ['hn'],
       languageCode: 'es',
-      locationBias: {
+      locationRestriction: {
         circle: {
           center: { latitude: locationBias.lat, longitude: locationBias.lng },
           radius: 50000,

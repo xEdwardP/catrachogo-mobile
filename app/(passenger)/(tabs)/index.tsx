@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 import type MapView from 'react-native-maps';
 
+import { LocationLegend } from '@/components/LocationLegend';
 import { MapLocationPickerModal } from '@/components/MapLocationPickerModal';
 import { NotificationBell } from '@/components/NotificationBell';
 import { PlaceAutocompleteInput, type PlaceSelection } from '@/components/PlaceAutocompleteInput';
@@ -146,6 +147,10 @@ export default function PassengerHomeScreen() {
     goToRequestTrip(place);
   }
 
+  function handleRemoveRecentDestination(place: PlaceSelection) {
+    setRecentDestinations((current) => current.filter((item) => item.address !== place.address));
+  }
+
   async function handleSaveFavorite(payload: CreateSavedAddressPayload) {
     setFavoriteError(null);
     setIsSavingFavorite(true);
@@ -229,13 +234,10 @@ export default function PassengerHomeScreen() {
                 ref={mapRef}
                 style={styles.map}
                 center={mapCenter}
-                markers={location ? [{ position: location }] : []}
+                markers={location ? [{ position: location, color: colors.success, pulse: true }] : []}
               />
               {location && (
-                <View style={[styles.mapBadge, { backgroundColor: colors.background }]}>
-                  <Ionicons name="navigate" size={12} color={colors.tint} />
-                  <Text style={styles.mapBadgeText}>Tu ubicación</Text>
-                </View>
+                <LocationLegend color={colors.success} style={styles.mapBadge} />
               )}
               <Pressable
                 style={[styles.expandButton, { backgroundColor: colors.background }]}
@@ -333,11 +335,7 @@ export default function PassengerHomeScreen() {
         <>
           <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>Destinos recientes</Text>
           {recentDestinations.map((place) => (
-            <Pressable
-              key={place.address}
-              style={[styles.row, { backgroundColor: colors.surfaceHighlight }, CARD_SHADOW]}
-              onPress={() => goToRequestTrip(place)}
-            >
+            <Card key={place.address} style={[styles.row, CARD_SHADOW]}>
               <View
                 style={[
                   styles.rowIcon,
@@ -347,11 +345,19 @@ export default function PassengerHomeScreen() {
               >
                 <Ionicons name="time-outline" size={18} color={colors.tint} />
               </View>
-              <Text style={[styles.rowAddress, styles.recentAddress]} numberOfLines={1}>
-                {place.address}
-              </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-            </Pressable>
+              <Pressable style={styles.rowMain} onPress={() => goToRequestTrip(place)}>
+                <Text style={[styles.rowAddress, styles.recentAddress]} numberOfLines={1}>
+                  {place.address}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.deleteButton}
+                onPress={() => handleRemoveRecentDestination(place)}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </Card>
           ))}
         </>
       )}
@@ -522,16 +528,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 10,
     top: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  mapBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
   },
   locateButton: {
     position: 'absolute',
